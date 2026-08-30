@@ -30,7 +30,7 @@ erDiagram
 |------|---------|
 | `RolUsuario` | `super_admin`, `admin`, `empleado`, `cliente` |
 | `EstadoPredio` | `activo`, `inactivo`, `pendiente_pago` |
-| `EstadoTurno` | `confirmado`, `cancelado_a_tiempo`, `cancelado_tarde`, `completado`, `no_show` |
+| `EstadoTurno` | `pendiente`, `confirmado`, `cancelado_a_tiempo`, `cancelado_tarde`, `completado`, `no_show` |
 | `EstadoPago` | `pagado`, `pendiente` |
 
 ---
@@ -51,6 +51,7 @@ Usuarios de la plataforma (clientes, admins de predio, empleados, super_admin).
 | `image` | `text?` | URL de avatar |
 | `rol` | `RolUsuario` | Default: `cliente` |
 | `predio_id` | `text? FK → predios` | Solo para `admin`/`empleado`: predio al que pertenece |
+| `max_predios` | `int` | Límite de predios que puede crear un admin (default: 1) |
 | `puntaje_asistencia` | `float?` | Porcentaje 0-100 de asistencia |
 | `turnos_totales` | `int` | Total de turnos reservados (default: 0) |
 | `turnos_asistidos` | `int` | Turnos a los que asistió (default: 0) |
@@ -128,11 +129,13 @@ Reservas de canchas por clientes.
 |---------|------|-------------|
 | `id` | `text PK` | CUID |
 | `cancha_id` | `text FK → canchas` | Cancha reservada |
-| `cliente_id` | `text FK → usuarios` | Cliente que reservó |
+| `cliente_id` | `text? FK → usuarios` | Cliente registrado (opcional si es reserva manual) |
+| `nombre_cliente_manual` | `text?` | Nombre del cliente si reservó por teléfono/mostrador |
+| `telefono_cliente_manual` | `text?` | Teléfono del cliente manual |
 | `fecha` | `date` | Fecha del turno |
 | `hora_inicio` | `text` | Formato "HH:mm" |
 | `hora_fin` | `text` | Formato "HH:mm" |
-| `estado` | `EstadoTurno` | Default: `confirmado` |
+| `estado` | `EstadoTurno` | `pendiente`, `confirmado`, `cancelado_a_tiempo`, etc. |
 | `precio_al_momento_reserva` | `float` | Snapshot del precio al reservar |
 | `cancelado_en` | `timestamp?` | Cuándo se canceló (si aplica) |
 | `fecha_creacion` | `timestamp` | Auto |

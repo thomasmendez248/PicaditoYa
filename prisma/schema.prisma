@@ -29,6 +29,7 @@ enum EstadoPredio {
 }
 
 enum EstadoTurno {
+  pendiente
   confirmado
   cancelado_a_tiempo
   cancelado_tarde
@@ -101,6 +102,7 @@ model Usuario {
 
   // Solo para admin y empleado
   predioId        String?     @map("predio_id")
+  maxPredios      Int         @default(1) @map("max_predios")
 
   // Stats de asistencia (solo aplica a clientes)
   puntajeAsistencia  Float?  @map("puntaje_asistencia") // porcentaje 0-100
@@ -170,21 +172,23 @@ model Cancha {
 }
 
 model Turno {
-  id                  String      @id @default(cuid())
-  canchaId            String      @map("cancha_id")
-  clienteId           String      @map("cliente_id")
-  fecha               DateTime    @db.Date
-  horaInicio          String      @map("hora_inicio") // "HH:mm"
-  horaFin             String      @map("hora_fin")    // "HH:mm"
-  estado              EstadoTurno @default(confirmado)
-  precioAlMomentoReserva Float    @map("precio_al_momento_reserva")
-  canceladoEn         DateTime?   @map("cancelado_en")
-  fechaCreacion       DateTime    @default(now()) @map("fecha_creacion")
-  updatedAt           DateTime    @updatedAt @map("updated_at")
+  id                     String      @id @default(cuid())
+  canchaId               String      @map("cancha_id")
+  clienteId              String?     @map("cliente_id")
+  nombreClienteManual    String?     @map("nombre_cliente_manual")
+  telefonoClienteManual  String?     @map("telefono_cliente_manual")
+  fecha                  DateTime    @db.Date
+  horaInicio             String      @map("hora_inicio") // "HH:mm"
+  horaFin                String      @map("hora_fin")    // "HH:mm"
+  estado                 EstadoTurno @default(confirmado)
+  precioAlMomentoReserva Float       @map("precio_al_momento_reserva")
+  canceladoEn            DateTime?   @map("cancelado_en")
+  fechaCreacion          DateTime    @default(now()) @map("fecha_creacion")
+  updatedAt              DateTime    @updatedAt @map("updated_at")
 
   // Relations
-  cancha              Cancha      @relation(fields: [canchaId], references: [id])
-  cliente             Usuario     @relation("TurnosDelCliente", fields: [clienteId], references: [id])
+  cancha                 Cancha      @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  cliente                Usuario?    @relation("TurnosDelCliente", fields: [clienteId], references: [id])
 
   @@map("turnos")
 }

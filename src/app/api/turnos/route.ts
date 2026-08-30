@@ -5,6 +5,44 @@ import { checkDisponibilidad } from "@/lib/disponibilidad";
 import { turnoSchema } from "@/lib/validations/turnos";
 
 /**
+ * GET /api/turnos?canchaId=...&fecha=YYYY-MM-DD
+ * Devuelve los turnos ocupados de una cancha en una fecha dada.
+ */
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const canchaId = searchParams.get("canchaId");
+  const fecha = searchParams.get("fecha");
+
+  if (!canchaId || !fecha) {
+    return NextResponse.json({ error: "Se requieren canchaId y fecha" }, { status: 400 });
+  }
+
+  const fechaDate = new Date(fecha);
+
+  try {
+    const turnos = await prisma.turno.findMany({
+      where: {
+        canchaId,
+        fecha: { equals: fechaDate },
+        estado: { in: ["confirmado", "pendiente"] as any },
+      },
+      select: {
+        id: true,
+        horaInicio: true,
+        horaFin: true,
+        estado: true,
+      },
+      orderBy: { horaInicio: "asc" },
+    });
+
+    return NextResponse.json({ turnos });
+  } catch (error) {
+    console.error("[GET /api/turnos]", error);
+    return NextResponse.json({ error: "Error al obtener turnos" }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/turnos
  * Crea un nuevo turno. Requiere sesión activa (cualquier rol cliente).
  */
@@ -59,6 +97,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Calcular precio proporcional a la duración en minutos
+    const [hIni, mIni] = horaInicio.split(":").map(Number);
+    const [hFin, mFin] = horaFin.split(":").map(Number);
+    const inicioMin = hIni * 60 + mIni;
+    let finMin = hFin * 60 + mFin;
+    if (finMin < inicioMin) finMin += 24 * 60;
+    const duracionMin = finMin - inicioMin;
+    const precioProporcional = duracionMin > 0
+      ? Math.round((cancha.precioTurno * duracionMin) / 60)
+      : cancha.precioTurno;
+
     // Crear el turno
     const turno = await prisma.turno.create({
       data: {
@@ -68,7 +117,7 @@ export async function POST(request: NextRequest) {
         horaInicio,
         horaFin,
         estado: "confirmado",
-        precioAlMomentoReserva: cancha.precioTurno,
+        precioAlMomentoReserva: precioProporcional,
       },
     });
 

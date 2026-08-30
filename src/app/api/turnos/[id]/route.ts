@@ -107,7 +107,9 @@ export async function PATCH(
         data: { estado: nuevoEstado },
       });
 
-      await actualizarPuntajeCliente(turno.clienteId, asistio ? "completado" : "no_show");
+      if (turno.clienteId) {
+        await actualizarPuntajeCliente(turno.clienteId, asistio ? "completado" : "no_show");
+      }
 
       return NextResponse.json({ turno: turnoActualizado });
     }
