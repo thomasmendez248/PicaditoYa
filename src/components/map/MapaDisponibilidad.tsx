@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import * as maptilersdk from "@maptiler/sdk";
+import "@maptiler/sdk/dist/maptiler-sdk.css";
 import { MapPin } from "lucide-react";
 
 type Predio = {
@@ -18,36 +18,36 @@ type Props = {
   canchaSeleccionada: string | null;
 };
 
-// Centro default: Buenos Aires, Argentina
-const DEFAULT_CENTER: [number, number] = [-58.3816, -34.6037];
-const DEFAULT_ZOOM = 11;
+// Centro default: Río Cuarto, Córdoba, Argentina (coordenadas del visor proporcionado)
+const DEFAULT_CENTER: [number, number] = [-63.90408, -31.64999];
+const DEFAULT_ZOOM = 14;
 
 export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const markers = useRef<mapboxgl.Marker[]>([]);
+  const map = useRef<maptilersdk.Map | null>(null);
+  const markers = useRef<maptilersdk.Marker[]>([]);
   const [tokenFaltante, setTokenFaltante] = useState(false);
 
   useEffect(() => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-    if (!token) {
+    const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+    if (!key) {
       setTokenFaltante(true);
       return;
     }
 
     if (!mapContainer.current || map.current) return;
 
-    mapboxgl.accessToken = token;
+    maptilersdk.config.apiKey = key;
 
-    map.current = new mapboxgl.Map({
+    map.current = new maptilersdk.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/dark-v11",
+      style: `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${key}`,
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
     });
 
     map.current.addControl(
-      new mapboxgl.NavigationControl({ showCompass: false }),
+      new maptilersdk.NavigationControl({ showCompass: false }),
       "bottom-right"
     );
 
@@ -70,7 +70,7 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
     predios.forEach((predio) => {
       // Crear elemento HTML personalizado para el marker
       const el = document.createElement("div");
-      el.className = "mapbox-marker group";
+      el.className = "maptiler-marker group";
       el.innerHTML = `
         <div class="marker-pin transition-transform group-hover:scale-110">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -80,9 +80,9 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
         </div>
       `;
 
-      const popup = new mapboxgl.Popup({
+      const popup = new maptilersdk.Popup({
         offset: 25,
-        className: "mapbox-popup-dark",
+        className: "maptiler-popup-dark",
         closeButton: false,
         maxWidth: "240px",
       }).setHTML(`
@@ -93,7 +93,7 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
         </div>
       `);
 
-      const marker = new mapboxgl.Marker(el)
+      const marker = new maptilersdk.Marker({ element: el })
         .setLngLat([predio.longitud, predio.latitud])
         .setPopup(popup)
         .addTo(map.current!);
@@ -109,7 +109,7 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
         duration: 800,
       });
     } else if (predios.length > 1) {
-      const bounds = new mapboxgl.LngLatBounds();
+      const bounds = new maptilersdk.LngLatBounds();
       predios.forEach((p) => bounds.extend([p.longitud, p.latitud]));
       map.current.fitBounds(bounds, { padding: 80, duration: 800 });
     }
@@ -122,14 +122,14 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
           <MapPin className="w-8 h-8 text-amber-400" />
         </div>
         <div className="text-center">
-          <p className="text-text-main font-semibold">Token de Mapbox no configurado</p>
+          <p className="text-text-main font-semibold">API Key de MapTiler no configurada</p>
           <p className="text-text-muted text-sm mt-1 max-w-xs">
             Agregá{" "}
             <code className="text-brand-dark bg-surface-hover px-1 rounded">
-              NEXT_PUBLIC_MAPBOX_TOKEN
+              NEXT_PUBLIC_MAPTILER_KEY
             </code>{" "}
             en tu archivo{" "}
-            <code className="text-brand-dark bg-surface-hover px-1 rounded">.env.local</code>
+            <code className="text-brand-dark bg-surface-hover px-1 rounded">.env</code>
           </p>
         </div>
       </div>
@@ -139,9 +139,9 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
   return (
     <>
       <style>{`
-        .mapbox-marker { cursor: pointer; }
-        .mapboxgl-popup-content { background: transparent !important; padding: 0 !important; box-shadow: none !important; }
-        .mapboxgl-popup-tip { border-top-color: #1B2F22 !important; }
+        .maptiler-marker { cursor: pointer; }
+        .maplibregl-popup-content { background: transparent !important; padding: 0 !important; box-shadow: none !important; }
+        .maplibregl-popup-tip { border-top-color: #1B2F22 !important; }
       `}</style>
       <div ref={mapContainer} className="w-full h-full" />
     </>
