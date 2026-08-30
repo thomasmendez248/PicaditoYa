@@ -4,7 +4,15 @@ import { getCanchasDisponibles } from "@/lib/disponibilidad";
 
 /**
  * GET /api/disponibilidad
- * Query params: fecha (YYYY-MM-DD), horaInicio (HH:mm), horaFin (HH:mm), nombre (opcional)
+ * Query params:
+ *   - fecha (YYYY-MM-DD) — requerido
+ *   - horaInicio (HH:mm) — requerido
+ *   - horaFin (HH:mm) — requerido
+ *   - nombre (string) — opcional, busca por nombre de cancha o predio
+ *   - ciudad (string) — opcional, busca por dirección del predio
+ *   - lat (number) — opcional, latitud del usuario para búsqueda por cercanía
+ *   - lng (number) — opcional, longitud del usuario para búsqueda por cercanía
+ *   - distancia (number) — opcional, radio máximo en km (default: 50)
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -13,6 +21,15 @@ export async function GET(request: NextRequest) {
   const horaInicio = searchParams.get("horaInicio");
   const horaFin = searchParams.get("horaFin");
   const nombre = searchParams.get("nombre") ?? undefined;
+  const ciudad = searchParams.get("ciudad") ?? undefined;
+
+  const latStr = searchParams.get("lat");
+  const lngStr = searchParams.get("lng");
+  const distanciaStr = searchParams.get("distancia");
+
+  const latUsuario = latStr ? parseFloat(latStr) : undefined;
+  const lngUsuario = lngStr ? parseFloat(lngStr) : undefined;
+  const distanciaMaxKm = distanciaStr ? parseFloat(distanciaStr) : undefined;
 
   if (!fecha || !horaInicio || !horaFin) {
     return NextResponse.json(
@@ -31,7 +48,11 @@ export async function GET(request: NextRequest) {
       fechaDate,
       horaInicio,
       horaFin,
-      nombre
+      nombre,
+      ciudad,
+      latUsuario,
+      lngUsuario,
+      distanciaMaxKm
     );
 
     return NextResponse.json({ canchas });
@@ -40,3 +61,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
+

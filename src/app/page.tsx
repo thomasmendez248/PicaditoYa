@@ -52,6 +52,27 @@ export default function HomePage() {
   const [buscado, setBuscado] = useState(false);
   const [canchaSeleccionada, setCanchaSeleccionada] = useState<string | null>(null);
 
+  // Geolocalización del usuario
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const obtenerUbicacion = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setCiudad("📍 Mi ubicación");
+        setGeoLoading(false);
+      },
+      () => {
+        setGeoLoading(false);
+        alert("No se pudo obtener tu ubicación. Verificá los permisos del navegador.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
   const buscar = useCallback(async () => {
     if (!franja) return;
     setCargando(true);
@@ -62,7 +83,8 @@ export default function HomePage() {
       horaInicio: franja.inicio,
       horaFin: franja.fin,
       ...(nombre ? { nombre } : {}),
-      // TODO: Implementar ciudad y distancia en la API de backend
+      ...(ciudad && !userCoords ? { ciudad } : {}),
+      ...(userCoords ? { lat: String(userCoords.lat), lng: String(userCoords.lng), distancia: String(distancia) } : {}),
     });
 
     try {
@@ -74,7 +96,7 @@ export default function HomePage() {
     } finally {
       setCargando(false);
     }
-  }, [fecha, franja, nombre, ciudad, distancia]);
+  }, [fecha, franja, nombre, ciudad, distancia, userCoords]);
 
   const prediosEnMapa = canchas.map((c) => c.predio);
   const prediosUnicos = prediosEnMapa.filter(
@@ -129,25 +151,60 @@ export default function HomePage() {
           {/* LISTADO DE RESULTADOS */}
           <section className="w-full lg:w-5/12 flex flex-col gap-6">
             
-            {/* BUSCADOR COMPACTO */}
+            {/* BUSCADOR COMPACTO Y FUNCIONAL */}
             <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 shadow-2xl p-6 rounded-[2rem] flex flex-col gap-4 w-full">
               
-              <div className="w-full bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
-                <MapPin className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
-                <input
-                  type="text"
-                  placeholder="Ciudad o complejo..."
-                  value={ciudad}
-                  onChange={(e) => {
-                    setCiudad(e.target.value);
-                    setNombre(e.target.value);
-                  }}
-                  aria-label="Ubicación o nombre del complejo"
-                  className="w-full bg-transparent text-white placeholder:text-white/50 text-base focus:outline-none"
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-white/70 ml-1">Ubicación y Nombre</label>
+                
+                {/* Input Ubicación (con geolocalización) */}
+                <div className="relative w-full bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+                  <MapPin className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
+                  <input
+                    type="text"
+                    placeholder="Ciudad o barrio..."
+                    value={ciudad}
+                    onChange={(e) => { setCiudad(e.target.value); setUserCoords(null); }}
+                    aria-label="Ubicación"
+                    className="w-full bg-transparent text-white placeholder:text-white/50 text-base focus:outline-none pr-10"
+                  />
+                  <button onClick={obtenerUbicacion} disabled={geoLoading} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-xl transition-colors ${userCoords ? 'text-brand' : 'text-white/50 hover:text-brand'}`} title="Usar mi ubicación actual">
+                    {geoLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Crosshair className="w-5 h-5" />}
+                  </button>
+                </div>
+
+                {/* Input Nombre del Complejo */}
+                <div className="w-full bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+                  <Search className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
+                  <input
+                    type="text"
+                    placeholder="Nombre del complejo..."
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    aria-label="Nombre del complejo"
+                    className="w-full bg-transparent text-white placeholder:text-white/50 text-base focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Distancia */}
+              <div className="space-y-2 mt-2">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-sm font-semibold text-white/70">Distancia máxima</label>
+                  <span className="text-sm font-bold text-brand">{distancia} km</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="50" 
+                  value={distancia} 
+                  onChange={(e) => setDistancia(Number(e.target.value))}
+                  className="w-full accent-brand h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
+              {/* Fecha y Hora */}
+              <div className="flex flex-col sm:flex-row gap-3 mt-2">
                 <div className="flex-1 bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
                   <Calendar className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
                   <input
@@ -182,7 +239,7 @@ export default function HomePage() {
                 onClick={buscar}
                 disabled={!franja || cargando}
                 aria-label="Buscar canchas disponibles"
-                className="w-full mt-2 bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-surface font-bold px-6 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(69,228,148,0.2)] hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white focus:outline-none"
+                className="w-full mt-4 bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-surface font-bold px-6 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(69,228,148,0.2)] hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white focus:outline-none"
               >
                 {cargando ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : <Search className="w-5 h-5" aria-hidden="true" />}
                 Buscar
