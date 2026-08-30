@@ -106,6 +106,13 @@ npm run db:push      # Push schema sin migración
 npm run db:studio    # Abrir Prisma Studio
 ```
 
+## Arquitectura y Decisiones (ADRs)
+
+La arquitectura principal y las decisiones técnicas importantes se documentan en `docs/decisions/` siguiendo el formato ADR (Architecture Decision Record).
+
+- [ADR-001: Stack Tecnológico Principal](file:///c:/Users/Thomas/Documents/PicaditoYa/docs/decisions/ADR-001-stack-tecnologico.md)
+- [ADR-002: Autenticación y Control de Acceso por Roles](file:///c:/Users/Thomas/Documents/PicaditoYa/docs/decisions/ADR-002-autenticacion-y-roles.md)
+
 ## Reglas de negocio clave
 
 - **No-show**: cancelación fuera de término impacta el puntaje igual que una inasistencia
@@ -114,3 +121,20 @@ npm run db:studio    # Abrir Prisma Studio
 - **Marcado de asistencia**: manual por empleado desde el turnero
 - **Predios inactivos**: no aparecen en el mapa ni aceptan reservas
 - **Empleado**: solo ve su propio predio (filtro automático por `predioId`)
+
+## Contributing
+
+Para contribuir:
+1. Las decisiones arquitectónicas nuevas requieren un nuevo ADR en `docs/decisions/`.
+2. Seguir las guías de diseño en la skill `ui-ux-pro-max`.
+
+## Changelog
+
+*Mantener un registro de los cambios importantes.*
+
+### [0.1.0] - 2026-08-30
+#### Added
+- Setup inicial del proyecto con Next.js 16, Prisma y Supabase.
+- Configuración de autenticación con NextAuth v5 y proxy para roles.
+- Esquema de base de datos inicial para predios, canchas y turnos.
+- Integración de Mapbox para visualización de predios.

@@ -1,11 +1,22 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand: #4CAF50; /* Verde césped más natural */
+  --color-brand-hover: #66BB6A;
+  --color-brand-dim: rgba(76, 175, 80, 0.15);
+  --color-brand-dark: #388E3C;
+  
+  --color-surface: #141F16; /* Verde bosque profundo oscuro */
+  --color-surface-hover: #1C2B1F;
+  --color-surface-card: #223326;
+  
+  --color-text-main: #F4F7F5; /* Blanco para texto sobre fondo oscuro */
+  --color-text-muted: #9BAA9E;
+  --color-border: #304535;
+}
+
 :root {
   --font-inter: "Inter", sans-serif;
-  /* Brand colors */
-  --color-brand: #10b981;
-  --color-brand-hover: #34d399;
-  --color-brand-dim: rgba(16, 185, 129, 0.15);
 }
 
 *,
@@ -25,8 +36,8 @@ body {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0a0a0a;
-  color: #ffffff;
+  background-color: var(--color-surface);
+  color: var(--color-text-main);
 }
 
 /* Scrollbar personalizado */

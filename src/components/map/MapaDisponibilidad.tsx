@@ -70,12 +70,12 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
     predios.forEach((predio) => {
       // Crear elemento HTML personalizado para el marker
       const el = document.createElement("div");
-      el.className = "mapbox-marker";
+      el.className = "mapbox-marker group";
       el.innerHTML = `
-        <div class="marker-pin">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="12" fill="#10b981"/>
-            <path d="M12 6C9.79 6 8 7.79 8 10C8 13.5 12 18 12 18C12 18 16 13.5 16 10C16 7.79 14.21 6 12 6ZM12 11.5C11.17 11.5 10.5 10.83 10.5 10C10.5 9.17 11.17 8.5 12 8.5C12.83 8.5 13.5 9.17 13.5 10C13.5 10.83 12.83 11.5 12 11.5Z" fill="white"/>
+        <div class="marker-pin transition-transform group-hover:scale-110">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="12" fill="#4CAF50" class="shadow-sm"/>
+            <path d="M12 6C9.79 6 8 7.79 8 10C8 13.5 12 18 12 18C12 18 16 13.5 16 10C16 7.79 14.21 6 12 6ZM12 11.5C11.17 11.5 10.5 10.83 10.5 10C10.5 9.17 11.17 8.5 12 8.5C12.83 8.5 13.5 9.17 13.5 10C13.5 10.83 12.83 11.5 12 11.5Z" fill="#141F16"/>
           </svg>
         </div>
       `;
@@ -84,12 +84,12 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
         offset: 25,
         className: "mapbox-popup-dark",
         closeButton: false,
-        maxWidth: "220px",
+        maxWidth: "240px",
       }).setHTML(`
-        <div style="padding: 8px; background: #1a1a1a; border-radius: 8px;">
-          <p style="font-weight: 600; color: #fff; margin: 0 0 2px; font-size: 13px;">${predio.nombre}</p>
-          <p style="color: #a3a3a3; margin: 0; font-size: 11px;">${predio.direccion}</p>
-          <a href="/predio/${predio.id}" style="display: inline-block; margin-top: 8px; background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-decoration: none;">Ver cancha →</a>
+        <div style="padding: 12px; background: #223326; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3); border: 1px solid #304535;">
+          <p style="font-weight: 700; color: #F4F7F5; margin: 0 0 4px; font-size: 14px;">${predio.nombre}</p>
+          <p style="color: #9BAA9E; margin: 0 0 12px; font-size: 12px; line-height: 1.4;">${predio.direccion}</p>
+          <a href="/predio/${predio.id}" style="display: block; text-align: center; background: #4CAF50; color: #FFFFFF; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#66BB6A'" onmouseout="this.style.background='#4CAF50'">Ver disponibilidad →</a>
         </div>
       `);
 
@@ -117,19 +117,19 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
 
   if (tokenFaltante) {
     return (
-      <div className="flex-1 h-full flex flex-col items-center justify-center bg-neutral-900 gap-4">
+      <div className="flex-1 h-full flex flex-col items-center justify-center bg-surface gap-4 border border-border rounded-full">
         <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center">
           <MapPin className="w-8 h-8 text-amber-400" />
         </div>
         <div className="text-center">
-          <p className="text-white font-semibold">Token de Mapbox no configurado</p>
-          <p className="text-neutral-400 text-sm mt-1 max-w-xs">
+          <p className="text-text-main font-semibold">Token de Mapbox no configurado</p>
+          <p className="text-text-muted text-sm mt-1 max-w-xs">
             Agregá{" "}
-            <code className="text-emerald-400 bg-neutral-800 px-1 rounded">
+            <code className="text-brand-dark bg-surface-hover px-1 rounded">
               NEXT_PUBLIC_MAPBOX_TOKEN
             </code>{" "}
             en tu archivo{" "}
-            <code className="text-emerald-400 bg-neutral-800 px-1 rounded">.env.local</code>
+            <code className="text-brand-dark bg-surface-hover px-1 rounded">.env.local</code>
           </p>
         </div>
       </div>
@@ -140,10 +140,8 @@ export default function MapaDisponibilidad({ predios, canchaSeleccionada }: Prop
     <>
       <style>{`
         .mapbox-marker { cursor: pointer; }
-        .marker-pin { transition: transform 0.2s; }
-        .marker-pin:hover { transform: scale(1.2); }
         .mapboxgl-popup-content { background: transparent !important; padding: 0 !important; box-shadow: none !important; }
-        .mapboxgl-popup-tip { border-top-color: #1a1a1a !important; }
+        .mapboxgl-popup-tip { border-top-color: #1B2F22 !important; }
       `}</style>
       <div ref={mapContainer} className="w-full h-full" />
     </>
