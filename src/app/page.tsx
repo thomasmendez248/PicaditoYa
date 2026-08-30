@@ -6,7 +6,7 @@ import { Search, MapPin, Clock, Calendar, ChevronRight, Loader2, Map as MapIcon,
 import { format } from "date-fns";
 import Link from "next/link";
 
-// Carga dinámica del mapa para evitar SSR issues con mapbox-gl
+// Carga dinámica del mapa para evitar SSR issues con MapTiler SDK
 const MapaDisponibilidad = dynamic(() => import("@/components/map/MapaDisponibilidad"), {
   ssr: false,
   loading: () => (
