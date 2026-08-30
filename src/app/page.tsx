@@ -82,50 +82,66 @@ export default function HomePage() {
   );
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col font-sans text-text-main overflow-x-hidden">
+    <div 
+      className="min-h-screen flex flex-col font-sans text-text-main overflow-x-hidden bg-cover bg-center bg-fixed relative"
+      style={{ backgroundImage: "url('/hero-bg.jpg')" }}
+    >
+      {/* Capa oscura global para atenuar fuertemente la foto y que no moleste */}
+      <div className="absolute inset-0 bg-surface/95 z-0" />
       
-      {/* ── HEADER ── */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-surface/90 backdrop-blur border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center shadow-sm">
-            <MapPin className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-text-main font-bold text-xl tracking-tight">PicaditoYa</span>
-        </div>
-        <nav className="flex items-center gap-3">
-          <Link href="/auth/login" className="text-sm font-medium text-text-muted hover:text-text-main transition-colors px-3 py-1.5">
-            Iniciar sesión
-          </Link>
-          <Link href="/auth/register" className="text-sm bg-brand hover:bg-brand-hover text-white px-5 py-2 rounded-xl font-semibold transition-colors shadow-sm">
-            Registrarse
-          </Link>
-        </nav>
-      </header>
-
-      {/* ── SECCIÓN 1: HERO (Textos gigantes) ── */}
-      <section 
-        className="w-full px-6 py-20 md:py-32 md:px-12 animate-fade-in relative flex items-center bg-cover bg-center"
-        style={{ backgroundImage: "url('/hero-bg.jpg')" }}
-      >
-        <div className="absolute inset-0 bg-surface/90" /> {/* Overlay verde/oscuro para que el texto resalte */}
+      {/* Contenedor relativo para el contenido */}
+      <div className="relative z-10 flex flex-col min-h-screen w-full">
         
-        <div className="max-w-3xl z-10 relative">
-          <h1 className="text-5xl md:text-7xl font-black text-white leading-[0.9] tracking-tighter uppercase mb-6 drop-shadow-xl">
-            TU PRÓXIMA<br />CANCHA ESTÁ<br />AQUÍ
-          </h1>
-          <p className="text-brand-hover font-bold text-lg md:text-xl tracking-tight mb-8 drop-shadow-md">
-            <span className="text-white">Fútbol 5 • Fútbol 7 • Fútbol 11</span><br />
-            Torneos • Reservas y mucho más.
-          </p>
-        </div>
-      </section>
+        {/* ── HEADER SUPERPUESTO ── */}
+        <header className="absolute top-0 left-0 right-0 w-full z-50 flex items-center justify-between px-6 py-6 bg-transparent border-b border-white/15">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center shadow-sm">
+              <MapPin className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-white font-bold text-xl tracking-tight">PicaditoYa</span>
+          </div>
+          <nav className="flex items-center gap-3">
+            <Link href="/auth/login" className="text-sm font-medium text-white/80 hover:text-white transition-colors px-3 py-1.5 drop-shadow-sm">
+              Iniciar sesión
+            </Link>
+            <Link href="/auth/register" className="text-sm bg-brand hover:bg-brand-hover text-white px-5 py-2 rounded-xl font-semibold transition-colors shadow-sm">
+              Registrarse
+            </Link>
+          </nav>
+        </header>
+
+        {/* ── SECCIÓN 1: HERO (Textos gigantes e imagen circular) ── */}
+        <section className="w-full px-8 pt-24 pb-8 md:pt-28 md:pb-12 md:px-16 lg:px-24 animate-fade-in relative flex flex-col md:flex-row items-start md:items-center justify-between gap-8 md:gap-12">
+          
+          <div className="max-w-2xl z-10 relative shrink-0 w-full text-left">
+            <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black text-white leading-[0.9] tracking-tighter uppercase mb-6 drop-shadow-xl text-left">
+              TU PRÓXIMA<br />CANCHA ESTÁ<br />AQUÍ
+            </h1>
+            <p className="text-brand-hover font-bold text-lg md:text-xl tracking-tight drop-shadow-md text-left">
+              <span className="text-white">Fútbol 5 • Fútbol 7 • Fútbol 11</span><br />
+              Torneos • Reservas y mucho más.
+            </p>
+          </div>
+
+          <div className="z-10 relative flex-1 w-full flex justify-center md:justify-end mt-8 md:mt-0">
+            <div className="w-[280px] h-[280px] lg:w-[420px] lg:h-[420px] rounded-full border-8 border-white/10 shadow-[0_0_60px_rgba(76,175,80,0.3)] overflow-hidden transition-transform hover:scale-105 duration-500 bg-surface-card flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src="/pelota.jpg" 
+                alt="Pelota de fútbol dinámica" 
+                className="w-full h-full object-cover scale-110"
+              />
+            </div>
+          </div>
+
+        </section>
 
       {/* ── SECCIÓN 2: ENCONTRÁ TU CANCHA ── */}
       <main className="flex-1 w-full px-4 md:px-8 pb-12 flex flex-col md:flex-row gap-8 relative z-10">
         
         {/* COLUMNA IZQUIERDA: FILTROS */}
         <section className="w-full md:w-[380px] shrink-0 space-y-6">
-          <div className="bg-surface-card p-6 rounded-3xl border border-border shadow-sm">
+          <div className="bg-surface-card/70 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-lg">
             <h2 className="text-xl font-bold text-text-main mb-4 flex items-center gap-2">
               <Search className="w-5 h-5 text-brand" />
               Buscador
@@ -236,7 +252,7 @@ export default function HomePage() {
           </div>
 
           {/* Turnero / Resultados */}
-          <div className="bg-surface-card p-6 rounded-3xl border border-border shadow-sm min-h-[300px]">
+          <div className="bg-surface-card/70 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-lg min-h-[300px]">
             <h3 className="text-lg font-bold text-text-main mb-4 flex items-center justify-between">
               Resultados
               {buscado && !cargando && <span className="text-sm font-normal text-text-muted bg-surface-hover px-3 py-1 rounded-full">{canchas.length} canchas</span>}
@@ -265,7 +281,7 @@ export default function HomePage() {
                   className={`flex flex-col p-4 rounded-2xl border transition-all hover:-translate-y-1 ${
                     canchaSeleccionada === cancha.id
                       ? "border-brand bg-brand-dim"
-                      : "border-border bg-surface hover:border-brand/40 hover:shadow-md"
+                      : "border-white/10 bg-surface/50 hover:border-brand/50 hover:bg-surface/80 hover:shadow-md"
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -288,7 +304,8 @@ export default function HomePage() {
           </div>
         </section>
 
-      </main>
+          </main>
+      </div>
     </div>
   );
 }
