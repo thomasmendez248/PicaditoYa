@@ -1,0 +1,204 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum RolUsuario {
+  super_admin
+  admin
+  empleado
+  cliente
+}
+
+enum EstadoPredio {
+  activo
+  inactivo
+  pendiente_pago
+}
+
+enum EstadoTurno {
+  confirmado
+  cancelado_a_tiempo
+  cancelado_tarde
+  completado
+  no_show
+}
+
+enum EstadoPago {
+  pagado
+  pendiente
+}
+
+// ─────────────────────────────────────────────
+// NEXTAUTH MODELS
+// ─────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────
+// DOMAIN MODELS
+// ─────────────────────────────────────────────
+
+model Usuario {
+  id              String      @id @default(cuid())
+  nombre          String
+  email           String      @unique
+  emailVerified   DateTime?
+  telefono        String?
+  passwordHash    String?     @map("password_hash")
+  image           String?
+  rol             RolUsuario  @default(cliente)
+
+  // Solo para admin y empleado
+  predioId        String?     @map("predio_id")
+
+  // Stats de asistencia (solo aplica a clientes)
+  puntajeAsistencia  Float?  @map("puntaje_asistencia") // porcentaje 0-100
+  turnosTotales      Int     @default(0) @map("turnos_totales")
+  turnosAsistidos    Int     @default(0) @map("turnos_asistidos")
+  turnosNoShow       Int     @default(0) @map("turnos_no_show")
+
+  fechaCreacion   DateTime    @default(now()) @map("fecha_creacion")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  predio          Predio?     @relation("EmpleadosDelPredio", fields: [predioId], references: [id])
+  predioAdminDe   Predio[]    @relation("AdminDelPredio")
+  turnos          Turno[]     @relation("TurnosDelCliente")
+  accounts        Account[]
+  sessions        Session[]
+
+  @@map("usuarios")
+}
+
+model Predio {
+  id                      String       @id @default(cuid())
+  nombre                  String
+  telefono                String?
+  direccion               String
+  latitud                 Float
+  longitud                Float
+  estado                  EstadoPredio @default(pendiente_pago)
+  politicaCancelacionHoras Int         @default(24) @map("politica_cancelacion_horas")
+  fechaAlta               DateTime     @default(now()) @map("fecha_alta")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+
+  // El administrador del predio
+  adminId                 String       @map("admin_id")
+
+  // Relations
+  admin                   Usuario      @relation("AdminDelPredio", fields: [adminId], references: [id])
+  empleados               Usuario[]    @relation("EmpleadosDelPredio")
+  canchas                 Cancha[]
+  pagosAbono              PagoAbono[]
+
+  @@map("predios")
+}
+
+model Cancha {
+  id                       String   @id @default(cuid())
+  predioId                 String   @map("predio_id")
+  nombre                   String
+  capacidad                Int      @default(10)
+  precioTurno              Float    @map("precio_turno")
+  duracionTurnoMinutos     Int      @default(60) @map("duracion_turno_minutos")
+  horarioApertura          String   @map("horario_apertura") // "HH:mm" ej: "08:00"
+  horarioCierre            String   @map("horario_cierre")  // "HH:mm" ej: "23:00"
+  diasOperativos           Int[]    @map("dias_operativos") // 0=Dom, 1=Lun, ..., 6=Sáb
+
+  // Override opcional de la política de cancelación del predio
+  politicaCancelacionHoras Int?     @map("politica_cancelacion_horas")
+
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  predio                   Predio   @relation(fields: [predioId], references: [id], onDelete: Cascade)
+  turnos                   Turno[]
+
+  @@map("canchas")
+}
+
+model Turno {
+  id                  String      @id @default(cuid())
+  canchaId            String      @map("cancha_id")
+  clienteId           String      @map("cliente_id")
+  fecha               DateTime    @db.Date
+  horaInicio          String      @map("hora_inicio") // "HH:mm"
+  horaFin             String      @map("hora_fin")    // "HH:mm"
+  estado              EstadoTurno @default(confirmado)
+  precioAlMomentoReserva Float    @map("precio_al_momento_reserva")
+  canceladoEn         DateTime?   @map("cancelado_en")
+  fechaCreacion       DateTime    @default(now()) @map("fecha_creacion")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  cancha              Cancha      @relation(fields: [canchaId], references: [id])
+  cliente             Usuario     @relation("TurnosDelCliente", fields: [clienteId], references: [id])
+
+  @@map("turnos")
+}
+
+model PagoAbono {
+  id                String     @id @default(cuid())
+  predioId          String     @map("predio_id")
+  mesCorrespondiente DateTime  @map("mes_correspondiente") @db.Date
+  monto             Float
+  estado            EstadoPago @default(pendiente)
+  fechaPago         DateTime?  @map("fecha_pago")
+  createdAt         DateTime   @default(now()) @map("created_at")
+
+  // Relations
+  predio            Predio     @relation(fields: [predioId], references: [id])
+
+  @@map("pagos_abono")
+}

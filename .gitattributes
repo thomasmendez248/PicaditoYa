@@ -1,0 +1,8 @@
+# Normalizar line endings en el repo
+* text=auto eol=lf
+
+# Forzar binarios
+*.png binary
+*.jpg binary
+*.ico binary
+*.svg text
