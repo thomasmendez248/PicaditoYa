@@ -63,12 +63,20 @@ export async function checkDisponibilidad(
  * @param horaInicio - Hora de inicio en formato "HH:mm"
  * @param horaFin - Hora de fin en formato "HH:mm"
  * @param nombre - Filtro opcional de texto sobre nombre de cancha o predio
+ * @param ciudad - Filtro opcional de texto sobre la dirección del predio
+ * @param latUsuario - Latitud del usuario para filtrado por cercanía
+ * @param lngUsuario - Longitud del usuario para filtrado por cercanía
+ * @param distanciaMaxKm - Radio máximo en km (default: 50)
  */
 export async function getCanchasDisponibles(
   fecha: Date,
   horaInicio: string,
   horaFin: string,
-  nombre?: string
+  nombre?: string,
+  ciudad?: string,
+  latUsuario?: number,
+  lngUsuario?: number,
+  distanciaMaxKm?: number
 ) {
   // Obtenemos todos los turnos confirmados que se solapan en ese horario
   const turnosOcupados = await prisma.turno.findMany({
@@ -83,6 +91,33 @@ export async function getCanchasDisponibles(
 
   const canchasOcupadasIds = turnosOcupados.map((t) => t.canchaId);
 
+  // Si tenemos coordenadas del usuario, primero filtramos los predios cercanos
+  // usando la fórmula de Haversine directamente en SQL para eficiencia.
+  let prediosCercanosIds: string[] | undefined;
+
+  if (latUsuario !== undefined && lngUsuario !== undefined && distanciaMaxKm) {
+    const prediosCercanos = await prisma.$queryRaw<{ id: string; distancia_km: number }[]>`
+      SELECT id,
+        ( 6371 * acos(
+            cos(radians(${latUsuario})) * cos(radians(latitud))
+            * cos(radians(longitud) - radians(${lngUsuario}))
+            + sin(radians(${latUsuario})) * sin(radians(latitud))
+        )) AS distancia_km
+      FROM predios
+      WHERE estado = 'activo'
+      HAVING ( 6371 * acos(
+            cos(radians(${latUsuario})) * cos(radians(latitud))
+            * cos(radians(longitud) - radians(${lngUsuario}))
+            + sin(radians(${latUsuario})) * sin(radians(latitud))
+        )) <= ${distanciaMaxKm}
+      ORDER BY distancia_km ASC
+    `;
+    prediosCercanosIds = prediosCercanos.map((p) => p.id);
+
+    // Si no hay predios en el radio, devolvemos vacío
+    if (prediosCercanosIds.length === 0) return [];
+  }
+
   // Traemos las canchas que no están en esa lista de ocupadas,
   // cuyo predio esté activo, y que operen en ese día de la semana.
   const diaSemana = fecha.getDay(); // 0 = Domingo, 6 = Sábado
@@ -92,6 +127,14 @@ export async function getCanchasDisponibles(
       id: { notIn: canchasOcupadasIds },
       predio: {
         estado: "activo",
+        // Filtrar por ciudad/dirección si se proporcionó
+        ...(ciudad
+          ? { direccion: { contains: ciudad, mode: "insensitive" } }
+          : {}),
+        // Filtrar por predios cercanos si calculamos proximidad
+        ...(prediosCercanosIds
+          ? { id: { in: prediosCercanosIds } }
+          : {}),
       },
       diasOperativos: { has: diaSemana },
       horarioApertura: { lte: horaInicio },
