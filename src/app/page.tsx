@@ -52,6 +52,27 @@ export default function HomePage() {
   const [buscado, setBuscado] = useState(false);
   const [canchaSeleccionada, setCanchaSeleccionada] = useState<string | null>(null);
 
+  // Geolocalización del usuario
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const obtenerUbicacion = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setCiudad("📍 Mi ubicación");
+        setGeoLoading(false);
+      },
+      () => {
+        setGeoLoading(false);
+        alert("No se pudo obtener tu ubicación. Verificá los permisos del navegador.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
   const buscar = useCallback(async () => {
     if (!franja) return;
     setCargando(true);
@@ -62,7 +83,8 @@ export default function HomePage() {
       horaInicio: franja.inicio,
       horaFin: franja.fin,
       ...(nombre ? { nombre } : {}),
-      // TODO: Implementar ciudad y distancia en la API de backend
+      ...(ciudad && !userCoords ? { ciudad } : {}),
+      ...(userCoords ? { lat: String(userCoords.lat), lng: String(userCoords.lng), distancia: String(distancia) } : {}),
     });
 
     try {
@@ -74,7 +96,7 @@ export default function HomePage() {
     } finally {
       setCargando(false);
     }
-  }, [fecha, franja, nombre, ciudad, distancia]);
+  }, [fecha, franja, nombre, ciudad, distancia, userCoords]);
 
   const prediosEnMapa = canchas.map((c) => c.predio);
   const prediosUnicos = prediosEnMapa.filter(
@@ -141,11 +163,11 @@ export default function HomePage() {
                     type="text"
                     placeholder="Ciudad o barrio..."
                     value={ciudad}
-                    onChange={(e) => setCiudad(e.target.value)}
+                    onChange={(e) => { setCiudad(e.target.value); setUserCoords(null); }}
                     className="w-full bg-surface-hover border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                   />
-                  <button className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-brand hover:bg-surface rounded-lg transition-colors" title="Usar mi ubicación actual">
-                    <Crosshair className="w-4 h-4" />
+                  <button onClick={obtenerUbicacion} disabled={geoLoading} className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-surface rounded-lg transition-colors ${userCoords ? 'text-green-400' : 'text-brand'}`} title="Usar mi ubicación actual">
+                    {geoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
                   </button>
                 </div>
                 <div className="relative">
