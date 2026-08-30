@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import type { RolUsuario } from "@prisma/client";
+import type { RolUsuario } from "@prisma/client"; 
 
 // Mapeo de prefijos de ruta a roles permitidos
 const ROLE_ROUTES: Record<string, RolUsuario[]> = {

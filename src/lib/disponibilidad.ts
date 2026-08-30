@@ -76,7 +76,8 @@ export async function getCanchasDisponibles(
   ciudad?: string,
   latUsuario?: number,
   lngUsuario?: number,
-  distanciaMaxKm?: number
+  distanciaMaxKm?: number,
+  capacidad?: number
 ) {
   // Obtenemos todos los turnos confirmados que se solapan en ese horario
   const turnosOcupados = await prisma.turno.findMany({
@@ -139,6 +140,7 @@ export async function getCanchasDisponibles(
       diasOperativos: { has: diaSemana },
       horarioApertura: { lte: horaInicio },
       horarioCierre: { gte: horaFin },
+      ...(capacidad ? { capacidad } : {}),
       ...(nombre
         ? {
             OR: [

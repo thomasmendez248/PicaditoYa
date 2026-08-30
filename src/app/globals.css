@@ -1,18 +1,20 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #4CAF50; /* Verde césped más natural */
-  --color-brand-hover: #66BB6A;
-  --color-brand-dim: rgba(76, 175, 80, 0.15);
-  --color-brand-dark: #388E3C;
+  --color-brand: #45E494; /* Verde brillante estilo Picadito.app */
+  --color-brand-hover: #3CD085;
+  --color-brand-dim: rgba(69, 228, 148, 0.15);
+  --color-brand-dark: #2F9E66;
   
-  --color-surface: #141F16; /* Verde bosque profundo oscuro */
-  --color-surface-hover: #1C2B1F;
-  --color-surface-card: #223326;
+  --color-surface: #101612; /* Aún más oscuro para contraste */
+  --color-surface-hover: #17211B;
+  --color-surface-card: #1A261E;
   
   --color-text-main: #F4F7F5; /* Blanco para texto sobre fondo oscuro */
   --color-text-muted: #9BAA9E;
   --color-border: #304535;
+
+  --font-display: var(--font-bebas), "Bebas Neue", sans-serif;
 }
 
 :root {
