@@ -26,10 +26,12 @@ export async function GET(request: NextRequest) {
   const latStr = searchParams.get("lat");
   const lngStr = searchParams.get("lng");
   const distanciaStr = searchParams.get("distancia");
+  const capacidadStr = searchParams.get("capacidad");
 
   const latUsuario = latStr ? parseFloat(latStr) : undefined;
   const lngUsuario = lngStr ? parseFloat(lngStr) : undefined;
   const distanciaMaxKm = distanciaStr ? parseFloat(distanciaStr) : undefined;
+  const capacidad = capacidadStr ? parseInt(capacidadStr, 10) : undefined;
 
   if (!fecha || !horaInicio || !horaFin) {
     return NextResponse.json(
@@ -52,7 +54,8 @@ export async function GET(request: NextRequest) {
       ciudad,
       latUsuario,
       lngUsuario,
-      distanciaMaxKm
+      distanciaMaxKm,
+      capacidad
     );
 
     return NextResponse.json({ canchas });

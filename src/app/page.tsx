@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { Search, MapPin, Clock, Calendar, ChevronRight, Loader2, Map as MapIcon, SlidersHorizontal, Crosshair } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 
 // Carga dinámica del mapa para evitar SSR issues con MapTiler SDK
 const MapaDisponibilidad = dynamic(() => import("@/components/map/MapaDisponibilidad"), {
@@ -44,6 +46,7 @@ export default function HomePage() {
   const [nombre, setNombre] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [distancia, setDistancia] = useState(5); // radio en km
+  const [capacidad, setCapacidad] = useState<string>("");
   const [fecha, setFecha] = useState(hoy);
   const [franja, setFranja] = useState<(typeof FRANJAS_HORARIAS)[0] | null>(null);
   
@@ -85,6 +88,7 @@ export default function HomePage() {
       ...(nombre ? { nombre } : {}),
       ...(ciudad && !userCoords ? { ciudad } : {}),
       ...(userCoords ? { lat: String(userCoords.lat), lng: String(userCoords.lng), distancia: String(distancia) } : {}),
+      ...(capacidad ? { capacidad } : {}),
     });
 
     try {
@@ -96,7 +100,7 @@ export default function HomePage() {
     } finally {
       setCargando(false);
     }
-  }, [fecha, franja, nombre, ciudad, distancia, userCoords]);
+  }, [fecha, franja, nombre, ciudad, distancia, userCoords, capacidad]);
 
   const prediosEnMapa = canchas.map((c) => c.predio);
   const prediosUnicos = prediosEnMapa.filter(
@@ -114,33 +118,18 @@ export default function HomePage() {
       {/* Contenedor relativo para el contenido */}
       <div className="relative z-10 flex flex-col min-h-screen w-full">
         
-        {/* ── HEADER SUPERPUESTO ── */}
-        <header className="absolute top-0 left-0 right-0 w-full z-50 flex items-center justify-between px-6 py-6 bg-transparent border-b border-white/10">
-          <Link href="/" className="flex items-center gap-2 group focus-visible:ring-2 focus-visible:ring-brand rounded-full outline-none">
-            <div className="w-10 h-10 bg-brand rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(69,228,148,0.4)] group-hover:scale-105 transition-transform">
-              <span className="text-surface font-black text-xl italic tracking-tighter">P</span>
-            </div>
-            <span className="text-2xl font-bold text-white tracking-tight drop-shadow-sm group-hover:text-white/90 transition-colors">
-              Picadito<span className="text-brand">Ya</span>
-            </span>
-          </Link>
-
-          <nav className="flex items-center gap-4">
-            <Link href="/auth/login" className="bg-brand hover:bg-brand-hover text-surface px-6 py-2.5 rounded-full font-bold transition-all hover:scale-105 shadow-[0_0_15px_rgba(69,228,148,0.3)] text-sm focus-visible:ring-2 focus-visible:ring-white outline-none">
-              Acceder
-            </Link>
-          </nav>
-        </header>
+        {/* ── HEADER ── */}
+        <Navbar />
 
         {/* ── SECCIÓN 1: HERO (Estilo Picadito.app) ── */}
         <section className="w-full px-8 pt-32 pb-12 md:pt-44 md:pb-16 md:px-16 lg:px-24 animate-fade-in relative flex flex-col items-start justify-center">
           <div className="max-w-4xl z-10 relative w-full text-left flex flex-col gap-1 md:gap-2">
-            <span className="text-brand font-bold tracking-[0.25em] text-xs md:text-sm uppercase drop-shadow-md">FÚTBOL • PÁDEL • BÁSQUET • TENIS</span>
+            <span className="text-brand font-bold tracking-[0.25em] text-xs md:text-sm uppercase drop-shadow-md">FÚTBOL</span>
             <h1 className="font-display text-[4rem] md:text-[6rem] lg:text-[7.5rem] text-[#F4F7F5] leading-[0.85] tracking-tight mb-4 drop-shadow-2xl uppercase mt-2">
               La cancha<br/>te espera
             </h1>
             <p className="text-white/90 font-medium text-lg md:text-2xl tracking-wide drop-shadow-md text-balance max-w-2xl mt-2 md:mt-4">
-              Armá el partido, invitá a los tuyos y pagá tu parte.<br className="hidden md:block"/> Lo demás se define en la cancha.
+              Armá el partido e invitá a los tuyos.<br className="hidden md:block"/> Lo demás se define en la cancha.
             </p>
           </div>
         </section>
@@ -187,20 +176,41 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Distancia */}
-              <div className="space-y-2 mt-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-sm font-semibold text-white/70">Distancia máxima</label>
-                  <span className="text-sm font-bold text-brand">{distancia} km</span>
+              {/* Filtros Secundarios */}
+              <div className="flex flex-col sm:flex-row gap-4 mt-2">
+                {/* Distancia */}
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-sm font-semibold text-white/70">Distancia máxima</label>
+                    <span className="text-sm font-bold text-brand">{distancia} km</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="50" 
+                    value={distancia} 
+                    onChange={(e) => setDistancia(Number(e.target.value))}
+                    className="w-full accent-brand h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
                 </div>
-                <input 
-                  type="range" 
-                  min="1" 
-                  max="50" 
-                  value={distancia} 
-                  onChange={(e) => setDistancia(Number(e.target.value))}
-                  className="w-full accent-brand h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                />
+
+                {/* Tipo de Cancha */}
+                <div className="flex-1 space-y-2">
+                  <label className="text-sm font-semibold text-white/70 px-1">Tipo de cancha</label>
+                  <div className="w-full bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-xl px-4 py-[7px] flex items-center focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+                    <select
+                      value={capacidad}
+                      onChange={(e) => setCapacidad(e.target.value)}
+                      aria-label="Tipo de cancha"
+                      className="w-full bg-transparent text-white text-sm focus:outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="" className="text-black">Cualquiera</option>
+                      <option value="10" className="text-black">Fútbol 5</option>
+                      <option value="14" className="text-black">Fútbol 7</option>
+                      <option value="22" className="text-black">Fútbol 11</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* Fecha y Hora */}
@@ -306,6 +316,31 @@ export default function HomePage() {
           </section>
 
           </main>
+          
+          {/* ── SECCIÓN CTA: REGISTRÁ TU PREDIO ── */}
+          <section className="w-full bg-[#0f1712]/95 backdrop-blur-xl border-t border-white/5 relative z-10 mt-8">
+            <div className="max-w-7xl mx-auto px-8 md:px-16 lg:px-24 py-16 flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+              <div className="flex flex-col gap-3 max-w-2xl relative z-10">
+                <h2 className="text-3xl md:text-5xl font-display uppercase tracking-tight text-white drop-shadow-sm">
+                  ¿Tenés un <span className="text-brand">complejo deportivo?</span>
+                </h2>
+                <p className="text-white/70 text-lg md:text-xl text-balance mt-2">
+                  Sumate a PicaditoYa y automatizá tus turnos. Conseguí más reservas, cobros integrados y olvidate de los mensajes de WhatsApp.
+                </p>
+              </div>
+
+              <div className="shrink-0 relative z-10 w-full md:w-auto mt-4 md:mt-0">
+                <Link 
+                  href="/registrar-cancha"
+                  className="bg-brand hover:bg-brand-hover text-surface font-bold text-lg px-10 py-5 rounded-2xl flex items-center justify-center transition-all hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white outline-none w-full md:w-auto text-center"
+                >
+                  Ver Beneficios
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <Footer />
       </div>
     </div>
   );
