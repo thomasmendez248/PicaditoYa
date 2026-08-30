@@ -69,9 +69,9 @@ export async function checkDisponibilidad(
  * @param distanciaMaxKm - Radio máximo en km (default: 50)
  */
 export async function getCanchasDisponibles(
-  fecha: Date,
-  horaInicio: string,
-  horaFin: string,
+  fecha?: Date,
+  horaInicio?: string,
+  horaFin?: string,
   nombre?: string,
   ciudad?: string,
   latUsuario?: number,
@@ -79,18 +79,21 @@ export async function getCanchasDisponibles(
   distanciaMaxKm?: number,
   capacidad?: number
 ) {
-  // Obtenemos todos los turnos confirmados que se solapan en ese horario
-  const turnosOcupados = await prisma.turno.findMany({
-    where: {
-      fecha: { equals: fecha },
-      estado: "confirmado",
-      horaInicio: { lt: horaFin },
-      horaFin: { gt: horaInicio },
-    },
-    select: { canchaId: true },
-  });
+  // Si se proveyó horario y fecha, filtramos los turnos ocupados
+  let canchasOcupadasIds: string[] = [];
 
-  const canchasOcupadasIds = turnosOcupados.map((t) => t.canchaId);
+  if (fecha && horaInicio && horaFin) {
+    const turnosOcupados = await prisma.turno.findMany({
+      where: {
+        fecha: { equals: fecha },
+        estado: "confirmado",
+        horaInicio: { lt: horaFin },
+        horaFin: { gt: horaInicio },
+      },
+      select: { canchaId: true },
+    });
+    canchasOcupadasIds = turnosOcupados.map((t) => t.canchaId);
+  }
 
   // Si tenemos coordenadas del usuario, primero filtramos los predios cercanos
   // usando la fórmula de Haversine directamente en SQL para eficiencia.
@@ -119,13 +122,12 @@ export async function getCanchasDisponibles(
     if (prediosCercanosIds.length === 0) return [];
   }
 
-  // Traemos las canchas que no están en esa lista de ocupadas,
-  // cuyo predio esté activo, y que operen en ese día de la semana.
-  const diaSemana = fecha.getDay(); // 0 = Domingo, 6 = Sábado
+  // Si hay fecha, filtramos por día de la semana
+  const diaSemana = fecha ? fecha.getDay() : undefined;
 
   const canchas = await prisma.cancha.findMany({
     where: {
-      id: { notIn: canchasOcupadasIds },
+      ...(canchasOcupadasIds.length > 0 ? { id: { notIn: canchasOcupadasIds } } : {}),
       predio: {
         estado: "activo",
         // Filtrar por ciudad/dirección si se proporcionó
@@ -137,9 +139,9 @@ export async function getCanchasDisponibles(
           ? { id: { in: prediosCercanosIds } }
           : {}),
       },
-      diasOperativos: { has: diaSemana },
-      horarioApertura: { lte: horaInicio },
-      horarioCierre: { gte: horaFin },
+      ...(diaSemana !== undefined ? { diasOperativos: { has: diaSemana } } : {}),
+      ...(horaInicio ? { horarioApertura: { lte: horaInicio } } : {}),
+      ...(horaFin ? { horarioCierre: { gte: horaFin } } : {}),
       ...(capacidad ? { capacidad } : {}),
       ...(nombre
         ? {
@@ -160,6 +162,7 @@ export async function getCanchasDisponibles(
           direccion: true,
           latitud: true,
           longitud: true,
+          telefono: true,
         },
       },
     },
@@ -168,3 +171,4 @@ export async function getCanchasDisponibles(
 
   return canchas;
 }
+

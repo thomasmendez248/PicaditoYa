@@ -35,7 +35,9 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Email o contraseña incorrectos. Intentá de nuevo.");
       } else {
-        router.push("/");
+        const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const callbackUrl = params?.get("callbackUrl") || "/admin";
+        router.push(callbackUrl);
         router.refresh();
       }
     } catch {

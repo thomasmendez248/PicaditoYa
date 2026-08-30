@@ -33,23 +33,19 @@ export async function GET(request: NextRequest) {
   const distanciaMaxKm = distanciaStr ? parseFloat(distanciaStr) : undefined;
   const capacidad = capacidadStr ? parseInt(capacidadStr, 10) : undefined;
 
-  if (!fecha || !horaInicio || !horaFin) {
-    return NextResponse.json(
-      { error: "Se requieren fecha, horaInicio y horaFin" },
-      { status: 400 }
-    );
-  }
-
-  const fechaDate = new Date(fecha);
-  if (isNaN(fechaDate.getTime())) {
-    return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  let fechaDate: Date | undefined = undefined;
+  if (fecha) {
+    fechaDate = new Date(fecha);
+    if (isNaN(fechaDate.getTime())) {
+      fechaDate = undefined;
+    }
   }
 
   try {
     const canchas = await getCanchasDisponibles(
       fechaDate,
-      horaInicio,
-      horaFin,
+      horaInicio || undefined,
+      horaFin || undefined,
       nombre,
       ciudad,
       latUsuario,

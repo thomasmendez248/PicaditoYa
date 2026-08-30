@@ -21,8 +21,11 @@ const MapaDisponibilidad = dynamic(() => import("@/components/map/MapaDisponibil
 type Cancha = {
   id: string;
   nombre: string;
+  capacidad: number;
   precioTurno: number;
   duracionTurnoMinutos: number;
+  horarioApertura: string;
+  horarioCierre: string;
   predio: {
     id: string;
     nombre: string;
@@ -77,14 +80,12 @@ export default function HomePage() {
   }, []);
 
   const buscar = useCallback(async () => {
-    if (!franja) return;
     setCargando(true);
     setBuscado(true);
 
     const params = new URLSearchParams({
-      fecha,
-      horaInicio: franja.inicio,
-      horaFin: franja.fin,
+      ...(fecha ? { fecha } : {}),
+      ...(franja ? { horaInicio: franja.inicio, horaFin: franja.fin } : {}),
       ...(nombre ? { nombre } : {}),
       ...(ciudad && !userCoords ? { ciudad } : {}),
       ...(userCoords ? { lat: String(userCoords.lat), lng: String(userCoords.lng), distancia: String(distancia) } : {}),
@@ -101,6 +102,11 @@ export default function HomePage() {
       setCargando(false);
     }
   }, [fecha, franja, nombre, ciudad, distancia, userCoords, capacidad]);
+
+  // Carga automática inicial de canchas al entrar a la página
+  useEffect(() => {
+    buscar();
+  }, []);
 
   const prediosEnMapa = canchas.map((c) => c.predio);
   const prediosUnicos = prediosEnMapa.filter(
@@ -137,52 +143,54 @@ export default function HomePage() {
         {/* ── CONTENIDO PRINCIPAL: RESULTADOS Y MAPA ── */}
         <main className="flex-1 w-full px-8 md:px-16 lg:px-24 py-12 flex flex-col lg:flex-row gap-8 lg:gap-12 relative z-10">
           
-          {/* LISTADO DE RESULTADOS */}
+          {/* LISTADO DE RESULTADOS & FILTROS */}
           <section className="w-full lg:w-5/12 flex flex-col gap-6">
             
             {/* BUSCADOR COMPACTO Y FUNCIONAL */}
-            <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 shadow-2xl p-6 rounded-[2rem] flex flex-col gap-4 w-full">
+            <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 shadow-2xl p-6 sm:p-7 rounded-[2.5rem] flex flex-col gap-4 w-full">
               
               <div className="space-y-3">
-                <label className="text-sm font-semibold text-white/70 ml-1">Ubicación y Nombre</label>
+                <label className="text-xs font-black uppercase tracking-wider text-white/70 ml-1">Ubicación y Complejo</label>
                 
                 {/* Input Ubicación (con geolocalización) */}
-                <div className="relative w-full bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+                <div className="relative w-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
                   <MapPin className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
                   <input
                     type="text"
                     placeholder="Ciudad o barrio..."
                     value={ciudad}
                     onChange={(e) => { setCiudad(e.target.value); setUserCoords(null); }}
+                    onKeyDown={(e) => e.key === "Enter" && buscar()}
                     aria-label="Ubicación"
-                    className="w-full bg-transparent text-white placeholder:text-white/50 text-base focus:outline-none pr-10"
+                    className="w-full bg-transparent text-white placeholder:text-white/40 text-base focus:outline-none pr-10"
                   />
                   <button onClick={obtenerUbicacion} disabled={geoLoading} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-xl transition-colors ${userCoords ? 'text-brand' : 'text-white/50 hover:text-brand'}`} title="Usar mi ubicación actual">
                     {geoLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Crosshair className="w-5 h-5" />}
                   </button>
                 </div>
 
-                {/* Input Nombre del Complejo */}
-                <div className="w-full bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+                {/* Input Nombre del Complejo o Cancha */}
+                <div className="w-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
                   <Search className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
                   <input
                     type="text"
-                    placeholder="Nombre del complejo..."
+                    placeholder="Nombre del complejo o cancha..."
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && buscar()}
                     aria-label="Nombre del complejo"
-                    className="w-full bg-transparent text-white placeholder:text-white/50 text-base focus:outline-none"
+                    className="w-full bg-transparent text-white placeholder:text-white/40 text-base focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Filtros Secundarios */}
-              <div className="flex flex-col sm:flex-row gap-4 mt-2">
+              <div className="flex flex-col sm:flex-row gap-4 mt-1">
                 {/* Distancia */}
                 <div className="flex-1 space-y-2">
                   <div className="flex justify-between items-center px-1">
-                    <label className="text-sm font-semibold text-white/70">Distancia máxima</label>
-                    <span className="text-sm font-bold text-brand">{distancia} km</span>
+                    <label className="text-xs font-bold uppercase tracking-wider text-white/60">Radio máximo</label>
+                    <span className="text-xs font-black text-brand">{distancia} km</span>
                   </div>
                   <input 
                     type="range" 
@@ -195,27 +203,27 @@ export default function HomePage() {
                 </div>
 
                 {/* Tipo de Cancha */}
-                <div className="flex-1 space-y-2">
-                  <label className="text-sm font-semibold text-white/70 px-1">Tipo de cancha</label>
-                  <div className="w-full bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-xl px-4 py-[7px] flex items-center focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+                <div className="flex-1 space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/60 px-1">Tipo de cancha</label>
+                  <div className="w-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors rounded-2xl px-4 py-2.5 flex items-center focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
                     <select
                       value={capacidad}
                       onChange={(e) => setCapacidad(e.target.value)}
                       aria-label="Tipo de cancha"
                       className="w-full bg-transparent text-white text-sm focus:outline-none appearance-none cursor-pointer"
                     >
-                      <option value="" className="text-black">Cualquiera</option>
-                      <option value="10" className="text-black">Fútbol 5</option>
-                      <option value="14" className="text-black">Fútbol 7</option>
-                      <option value="22" className="text-black">Fútbol 11</option>
+                      <option value="" className="text-black">Todas las medidas</option>
+                      <option value="10" className="text-black">Fútbol 5 (10 jugadores)</option>
+                      <option value="14" className="text-black">Fútbol 7 (14 jugadores)</option>
+                      <option value="22" className="text-black">Fútbol 11 (22 jugadores)</option>
                     </select>
                   </div>
                 </div>
               </div>
 
               {/* Fecha y Hora */}
-              <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                <div className="flex-1 bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+              <div className="flex flex-col sm:flex-row gap-3 mt-1">
+                <div className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
                   <Calendar className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
                   <input
                     type="date"
@@ -223,10 +231,10 @@ export default function HomePage() {
                     min={hoy}
                     onChange={(e) => setFecha(e.target.value)}
                     aria-label="Fecha de la reserva"
-                    className="w-full bg-transparent text-white text-base focus:outline-none [color-scheme:dark]"
+                    className="w-full bg-transparent text-white text-sm focus:outline-none [color-scheme:dark]"
                   />
                 </div>
-                <div className="flex-1 bg-white/5 border border-white/5 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3.5 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+                <div className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors rounded-2xl px-5 py-3 flex items-center gap-3 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
                   <Clock className="w-5 h-5 text-white/50 shrink-0" aria-hidden="true" />
                   <select
                     value={franja?.inicio || ""}
@@ -235,7 +243,7 @@ export default function HomePage() {
                       setFranja(f || null);
                     }}
                     aria-label="Horario de inicio"
-                    className="w-full bg-transparent text-white text-base focus:outline-none appearance-none cursor-pointer"
+                    className="w-full bg-transparent text-white text-sm focus:outline-none appearance-none cursor-pointer"
                   >
                     <option value="" className="text-black">Cualquier horario</option>
                     {FRANJAS_HORARIAS.map(f => (
@@ -247,101 +255,147 @@ export default function HomePage() {
 
               <button
                 onClick={buscar}
-                disabled={!franja || cargando}
+                disabled={cargando}
                 aria-label="Buscar canchas disponibles"
-                className="w-full mt-4 bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-surface font-bold px-6 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(69,228,148,0.2)] hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white focus:outline-none"
+                className="w-full mt-2 bg-brand hover:bg-brand-hover text-surface font-black text-base px-6 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(69,228,148,0.3)] hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white focus:outline-none"
               >
                 {cargando ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : <Search className="w-5 h-5" aria-hidden="true" />}
-                Buscar
+                Buscar Canchas
               </button>
             </div>
 
-            <h2 className="text-2xl font-medium text-white flex items-center justify-between mt-2">
-              Canchas disponibles
-              {buscado && !cargando && <span className="text-sm font-normal text-white/80 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full">{canchas.length} resultados</span>}
-            </h2>
+            {/* Cabecera de resultados */}
+            <div className="flex items-center justify-between mt-2">
+              <h2 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-wide">
+                Canchas disponibles
+              </h2>
+              {!cargando && (
+                <span className="text-xs font-black text-brand bg-brand/10 border border-brand/20 backdrop-blur-md px-3.5 py-1.5 rounded-full">
+                  {canchas.length} {canchas.length === 1 ? "resultado" : "resultados"}
+                </span>
+              )}
+            </div>
 
-            {!buscado && (
-              <div className="bg-surface-card/40 backdrop-blur-2xl ring-1 ring-white/10 rounded-[2.5rem] flex flex-col items-center justify-center h-[300px] text-center p-8 shadow-xl">
-                <SlidersHorizontal className="w-12 h-12 text-white/20 mb-4" aria-hidden="true" />
-                <p className="text-white/70 font-medium text-lg text-balance">Completá los datos en el buscador superior para ver las opciones cerca tuyo.</p>
+            {cargando && (
+              <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 rounded-[2.5rem] flex flex-col items-center justify-center h-[260px] text-center p-8 shadow-xl">
+                <Loader2 className="w-10 h-10 animate-spin text-brand mb-3" />
+                <p className="text-white font-bold">Buscando las mejores canchas...</p>
               </div>
             )}
 
-            {buscado && !cargando && canchas.length === 0 && (
-              <div className="bg-surface-card/40 backdrop-blur-2xl ring-1 ring-white/10 rounded-[2.5rem] flex flex-col items-center justify-center h-[300px] text-center p-8 shadow-xl">
-                <p className="text-white font-medium text-lg">No hay canchas disponibles.</p>
-                <p className="text-white/60 mt-2 text-balance">Intentá ampliando la búsqueda o eligiendo otro horario.</p>
+            {!cargando && canchas.length === 0 && (
+              <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 rounded-[2.5rem] flex flex-col items-center justify-center h-[260px] text-center p-8 shadow-xl">
+                <SlidersHorizontal className="w-10 h-10 text-white/30 mb-3" aria-hidden="true" />
+                <p className="text-white font-bold text-lg">No encontramos canchas con estos filtros.</p>
+                <p className="text-white/60 text-sm mt-1 text-balance">Probá ampliando el radio de búsqueda o cambiando el horario.</p>
               </div>
             )}
 
+            {/* Tarjetas de Canchas */}
             <div className="flex flex-col gap-4">
-              {canchas.map((cancha) => (
-                <Link
-                  key={cancha.id}
-                  href={`/predio/${cancha.predio.id}`}
-                  onClick={() => setCanchaSeleccionada(cancha.id)}
-                  aria-label={`Ver detalles de ${cancha.nombre} en ${cancha.predio.nombre}`}
-                  className={`group flex flex-col sm:flex-row gap-4 p-5 rounded-3xl border transition-all hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-brand focus:outline-none ${
-                    canchaSeleccionada === cancha.id
-                      ? "border-brand bg-brand/10 backdrop-blur-xl shadow-lg"
-                      : "border-white/10 bg-surface-card/40 backdrop-blur-xl hover:border-white/30 hover:bg-surface-card/60 shadow-md"
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-white text-xl truncate group-hover:text-brand transition-colors">{cancha.nombre}</h3>
-                    <p className="text-sm text-white/60 truncate flex items-center gap-1.5 mt-2">
-                      <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" /> {cancha.predio.nombre}
-                    </p>
-                    <p className="text-sm text-white/40 truncate ml-5.5 mt-0.5">{cancha.predio.direccion}</p>
-                  </div>
-                  <div className="flex flex-col items-start sm:items-end shrink-0 justify-between">
-                    <div className="bg-white/10 text-white font-medium px-4 py-1.5 rounded-full ring-1 ring-white/20 text-sm">
-                      ${cancha.precioTurno.toLocaleString("es-AR")}
+              {canchas.map((cancha) => {
+                const tipoCancha =
+                  cancha.capacidad <= 10
+                    ? "Fútbol 5"
+                    : cancha.capacidad <= 14
+                    ? "Fútbol 7"
+                    : "Fútbol 11";
+
+                return (
+                  <div
+                    key={cancha.id}
+                    onClick={() => setCanchaSeleccionada(cancha.id)}
+                    className={`group p-6 rounded-[2rem] border transition-all duration-200 cursor-pointer ${
+                      canchaSeleccionada === cancha.id
+                        ? "border-brand bg-brand/15 backdrop-blur-xl shadow-[0_0_25px_rgba(69,228,148,0.2)] ring-1 ring-brand"
+                        : "border-white/10 bg-[#0f1712]/90 backdrop-blur-xl hover:border-brand/50 hover:bg-[#0f1712] shadow-xl hover:scale-[1.01]"
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      
+                      {/* Info de Cancha y Predio */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-brand/15 text-brand border border-brand/30">
+                            {tipoCancha}
+                          </span>
+                          {cancha.horarioApertura && (
+                            <span className="text-[10px] text-white/50 flex items-center gap-1 font-mono">
+                              <Clock className="w-3 h-3 text-white/40" /> {cancha.horarioApertura} - {cancha.horarioCierre}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="font-display font-black text-white text-2xl truncate group-hover:text-brand transition-colors uppercase tracking-wide">
+                          {cancha.nombre}
+                        </h3>
+                        
+                        <p className="text-sm font-bold text-white/80 truncate flex items-center gap-1.5 mt-1">
+                          <MapPin className="w-4 h-4 text-brand shrink-0" aria-hidden="true" /> {cancha.predio.nombre}
+                        </p>
+                        <p className="text-xs text-white/50 truncate ml-5.5 mt-0.5">{cancha.predio.direccion}</p>
+                      </div>
+
+                      {/* Precio y Botón de Reserva */}
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-white/10">
+                        <div className="flex flex-col sm:items-end">
+                          <span className="text-[10px] text-white/50 font-bold uppercase tracking-wider">Turno por hora</span>
+                          <span className="text-2xl font-mono font-black text-brand drop-shadow-sm">
+                            ${cancha.precioTurno.toLocaleString("es-AR")}
+                          </span>
+                        </div>
+
+                        <Link
+                          href={`/predio/${cancha.predio.id}`}
+                          className="bg-white/10 hover:bg-brand text-white hover:text-surface font-black px-5 py-2.5 rounded-full text-xs flex items-center gap-1.5 transition-all shadow-sm group/btn"
+                        >
+                          <span>Ver Cancha</span>
+                          <ChevronRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+                        </Link>
+                      </div>
+
                     </div>
-                    <span className="text-white/80 font-medium flex items-center text-sm mt-4 sm:mt-0 group-hover:text-white transition-colors">
-                      Reservar <ChevronRight className="w-4 h-4 ml-1 opacity-50 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
-                    </span>
                   </div>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           </section>
 
-          {/* MAPA */}
-          <section className="w-full lg:w-7/12 min-h-[400px] lg:h-auto">
-            <div className="sticky top-28 w-full h-[400px] lg:h-[calc(100vh-160px)] rounded-[2.5rem] shadow-2xl overflow-hidden ring-1 ring-white/10 bg-surface-card/20 backdrop-blur-3xl">
+          {/* MAPA INTERACTIVO */}
+          <section className="w-full lg:w-7/12 min-h-[420px] lg:h-auto">
+            <div className="sticky top-28 w-full h-[420px] lg:h-[calc(100vh-160px)] rounded-[2.5rem] shadow-2xl overflow-hidden ring-1 ring-white/10 bg-[#0f1712]/90 backdrop-blur-3xl">
               <MapaDisponibilidad predios={prediosUnicos} canchaSeleccionada={canchaSeleccionada} />
             </div>
           </section>
 
-          </main>
-          
-          {/* ── SECCIÓN CTA: REGISTRÁ TU PREDIO ── */}
-          <section className="w-full bg-[#0f1712]/95 backdrop-blur-xl border-t border-white/5 relative z-10 mt-8">
-            <div className="max-w-7xl mx-auto px-8 md:px-16 lg:px-24 py-16 flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
-              <div className="flex flex-col gap-3 max-w-2xl relative z-10">
-                <h2 className="text-3xl md:text-5xl font-display uppercase tracking-tight text-white drop-shadow-sm">
-                  ¿Tenés un <span className="text-brand">complejo deportivo?</span>
-                </h2>
-                <p className="text-white/70 text-lg md:text-xl text-balance mt-2">
-                  Sumate a PicaditoYa y automatizá tus turnos. Conseguí más reservas, cobros integrados y olvidate de los mensajes de WhatsApp.
-                </p>
-              </div>
-
-              <div className="shrink-0 relative z-10 w-full md:w-auto mt-4 md:mt-0">
-                <Link 
-                  href="/registrar-cancha"
-                  className="bg-brand hover:bg-brand-hover text-surface font-bold text-lg px-10 py-5 rounded-2xl flex items-center justify-center transition-all hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white outline-none w-full md:w-auto text-center"
-                >
-                  Ver Beneficios
-                </Link>
-              </div>
+        </main>
+        
+        {/* ── SECCIÓN CTA: REGISTRÁ TU PREDIO ── */}
+        <section className="w-full bg-[#0f1712]/95 backdrop-blur-xl border-t border-white/5 relative z-10 mt-8">
+          <div className="max-w-7xl mx-auto px-8 md:px-16 lg:px-24 py-16 flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+            <div className="flex flex-col gap-3 max-w-2xl relative z-10">
+              <h2 className="text-3xl md:text-5xl font-display uppercase tracking-tight text-white drop-shadow-sm">
+                ¿Tenés un <span className="text-brand">complejo deportivo?</span>
+              </h2>
+              <p className="text-white/70 text-lg md:text-xl text-balance mt-2">
+                Sumate a PicaditoYa y automatizá tus turnos. Conseguí más reservas, cobros integrados y olvidate de los mensajes de WhatsApp.
+              </p>
             </div>
-          </section>
 
-          <Footer />
+            <div className="shrink-0 relative z-10 w-full md:w-auto mt-4 md:mt-0">
+              <Link 
+                href="/registrar-cancha"
+                className="bg-brand hover:bg-brand-hover text-surface font-bold text-lg px-10 py-5 rounded-2xl flex items-center justify-center transition-all hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white outline-none w-full md:w-auto text-center shadow-[0_0_20px_rgba(69,228,148,0.3)]"
+              >
+                Ver Beneficios
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <Footer />
       </div>
     </div>
   );
 }
+
