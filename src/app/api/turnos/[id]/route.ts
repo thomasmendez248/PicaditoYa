@@ -39,11 +39,27 @@ export async function PATCH(
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
       }
 
-      if (turno.estado !== "confirmado") {
+      if (turno.estado !== "confirmado" && turno.estado !== "pendiente") {
         return NextResponse.json(
-          { error: "Solo se pueden cancelar turnos confirmados" },
+          { error: "Solo se pueden cancelar turnos activos o pendientes" },
           { status: 400 }
         );
+      }
+
+      // Si estaba pendiente, se cancela directamente sin penalización
+      if (turno.estado === "pendiente") {
+        const turnoActualizado = await prisma.turno.update({
+          where: { id },
+          data: {
+            estado: "cancelado_a_tiempo",
+            canceladoEn: new Date(),
+          },
+        });
+
+        return NextResponse.json({
+          turno: turnoActualizado,
+          mensaje: "Solicitud de turno cancelada correctamente",
+        });
       }
 
       // Calcular horas de anticipación

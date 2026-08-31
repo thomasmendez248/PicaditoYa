@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Building2, MapPin, Phone, Loader2, Plus, Search, Crosshair, Trash2, CheckCircle2, ShieldAlert } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { X, Building2, MapPin, Phone, Loader2, Plus, Search, Crosshair, Trash2, CheckCircle2, ShieldAlert, Map as MapIcon } from "lucide-react";
 import { useAdmin, PredioAdmin } from "./AdminContext";
+import MapaPickerPredio from "./MapaPickerPredio";
 
 export default function PredioModal({
   isOpen,
@@ -22,6 +23,7 @@ export default function PredioModal({
   const [latitud, setLatitud] = useState<number>(-31.64999);
   const [longitud, setLongitud] = useState<number>(-63.90408);
   const [politicaCancelacionHoras, setPoliticaCancelacionHoras] = useState(24);
+  const [mostrarMapa, setMostrarMapa] = useState(true);
 
   const [cargando, setCargando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -48,6 +50,19 @@ export default function PredioModal({
     setError(null);
     setGeoExito(null);
   }, [predio, isOpen]);
+
+  // Manejar selección desde el mapa interactivo
+  const handleMapLocationSelect = useCallback((lat: number, lng: number, suggestedAddress?: string) => {
+    setLatitud(lat);
+    setLongitud(lng);
+    if (suggestedAddress) {
+      setDireccion(suggestedAddress);
+      setGeoExito(`Dirección actualizada desde el mapa: ${suggestedAddress}`);
+    } else {
+      setGeoExito(`Ubicación seleccionada: Lat ${lat}, Lng ${lng}`);
+    }
+    setError(null);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -244,15 +259,26 @@ export default function PredioModal({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold uppercase tracking-wider text-white/60">Dirección Completa *</label>
-              <button
-                type="button"
-                onClick={buscarCoordenadasPorDireccion}
-                disabled={buscandoGeo}
-                className="text-[11px] font-bold text-brand hover:underline flex items-center gap-1 transition-colors"
-              >
-                {buscandoGeo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                Buscar en Mapa
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMostrarMapa(!mostrarMapa)}
+                  className="text-[11px] font-bold text-brand hover:underline flex items-center gap-1 transition-colors"
+                >
+                  <MapIcon className="w-3 h-3" />
+                  {mostrarMapa ? "Ocultar Mapa" : "Elegir en Mapa"}
+                </button>
+                <span className="text-white/20">•</span>
+                <button
+                  type="button"
+                  onClick={buscarCoordenadasPorDireccion}
+                  disabled={buscandoGeo}
+                  className="text-[11px] font-bold text-white/70 hover:text-brand hover:underline flex items-center gap-1 transition-colors"
+                >
+                  {buscandoGeo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                  Buscar texto
+                </button>
+              </div>
             </div>
             <div className="relative">
               <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -266,6 +292,17 @@ export default function PredioModal({
               />
             </div>
           </div>
+
+          {/* Selector de Ubicación en el Mapa Interactivo */}
+          {mostrarMapa && (
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+              <MapaPickerPredio
+                latitud={latitud}
+                longitud={longitud}
+                onLocationSelect={handleMapLocationSelect}
+              />
+            </div>
+          )}
 
           {/* Coordenadas GPS */}
           <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">

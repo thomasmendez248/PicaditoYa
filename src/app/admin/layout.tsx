@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {/* Ambient Stadium Glow Gradient */}
         <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand/10 via-surface/40 to-surface -z-10" />
         <AdminHeader />
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in relative z-10">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 sm:pb-8 animate-fade-in relative z-10">
           {children}
         </main>
       </div>

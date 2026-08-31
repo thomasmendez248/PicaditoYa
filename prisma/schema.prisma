@@ -180,7 +180,7 @@ model Turno {
   fecha                  DateTime    @db.Date
   horaInicio             String      @map("hora_inicio") // "HH:mm"
   horaFin                String      @map("hora_fin")    // "HH:mm"
-  estado                 EstadoTurno @default(confirmado)
+  estado                 EstadoTurno @default(pendiente)
   precioAlMomentoReserva Float       @map("precio_al_momento_reserva")
   canceladoEn            DateTime?   @map("cancelado_en")
   fechaCreacion          DateTime    @default(now()) @map("fecha_creacion")

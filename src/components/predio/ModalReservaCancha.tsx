@@ -250,15 +250,18 @@ export default function ModalReservaCancha({
 
           {reservaExitosa ? (
             <div className="p-8 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(52,211,153,0.3)]">
+              <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(245,158,11,0.3)]">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h3 className="text-2xl font-display font-black text-white uppercase tracking-wide">
-                ¡Turno Reservado con Éxito!
+                ¡Solicitud Registrada!
               </h3>
               <p className="text-sm text-white/70">
-                Tu turno para el <strong>{fecha}</strong> de <strong>{horaInicio} a {horaFin}</strong> ({duracionMinutosReal} min) en <strong>{cancha.nombre}</strong> ha sido confirmado por <strong>${precioCalculado.toLocaleString("es-AR")}</strong>.
+                Tu turno para el <strong>{fecha}</strong> de <strong>{horaInicio} a {horaFin}</strong> ({duracionMinutosReal} min) en <strong>{cancha.nombre}</strong> ha sido solicitado por <strong>${precioCalculado.toLocaleString("es-AR")}</strong>.
               </p>
+              <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs flex items-center justify-center gap-2">
+                <span>El turno se encuentra <strong>PENDIENTE</strong> hasta que el administrador del predio lo confirme.</span>
+              </div>
               <button
                 onClick={onClose}
                 className="bg-brand hover:bg-brand-hover text-surface font-black px-8 py-3 rounded-full text-sm transition-all mt-4"
