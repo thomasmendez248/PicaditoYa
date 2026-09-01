@@ -371,14 +371,14 @@ export default function HomePage() {
         </main>
         
         {/* ── SECCIÓN CTA: REGISTRÁ TU PREDIO ── */}
-        <section className="w-full bg-[#0f1712]/95 backdrop-blur-xl border-t border-white/5 relative z-10 mt-8">
+        <section className="w-full relative z-10 mt-8">
           <div className="max-w-7xl mx-auto px-8 md:px-16 lg:px-24 py-16 flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
             <div className="flex flex-col gap-3 max-w-2xl relative z-10">
               <h2 className="text-3xl md:text-5xl font-display uppercase tracking-tight text-white drop-shadow-sm">
                 ¿Tenés un <span className="text-brand">complejo deportivo?</span>
               </h2>
               <p className="text-white/70 text-lg md:text-xl text-balance mt-2">
-                Sumate a PicaditoYa y automatizá tus turnos. Conseguí más reservas, cobros integrados y olvidate de los mensajes de WhatsApp.
+                Sumate a PicaditoYa y automatizá tus turnos. Conseguí más reservas y olvidate de los mensajes de WhatsApp.
               </p>
             </div>
 
@@ -387,7 +387,7 @@ export default function HomePage() {
                 href="/registrar-cancha"
                 className="bg-brand hover:bg-brand-hover text-surface font-bold text-lg px-10 py-5 rounded-2xl flex items-center justify-center transition-all hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white outline-none w-full md:w-auto text-center shadow-[0_0_20px_rgba(69,228,148,0.3)]"
               >
-                Ver Beneficios
+                Registrar Cancha
               </Link>
             </div>
           </div>

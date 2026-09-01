@@ -35,9 +35,23 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Email o contraseña incorrectos. Intentá de nuevo.");
       } else {
-        const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-        const callbackUrl = params?.get("callbackUrl") || "/admin";
-        router.push(callbackUrl);
+        const urlParams = new URLSearchParams(window.location.search);
+        const callbackUrl = urlParams.get("callbackUrl");
+        if (callbackUrl) {
+          router.push(callbackUrl);
+        } else {
+          try {
+            const res = await fetch("/api/auth/session");
+            const sess = await res.json();
+            if (["admin", "empleado", "super_admin"].includes(sess?.user?.rol)) {
+              router.push("/admin");
+            } else {
+              router.push("/cliente/mis-turnos");
+            }
+          } catch {
+            router.push("/cliente/mis-turnos");
+          }
+        }
         router.refresh();
       }
     } catch {
@@ -266,8 +280,6 @@ export default function LoginPage() {
               </div>
             )}
           </div>
-
-
         </div>
       </main>
     </div>
