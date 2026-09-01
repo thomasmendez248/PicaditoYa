@@ -1,6 +1,17 @@
 import { prisma } from "@/lib/prisma";
 
 /**
+ * Normaliza un texto para búsquedas: elimina acentos y pasa a minúsculas.
+ * Ej: "Córdoba" -> "cordoba", "BUENOS AIRES" -> "buenos aires"
+ */
+function normalizarTexto(texto: string): string {
+  return texto
+    .normalize("NFD")                        // descompone letras + diacríticos
+    .replace(/[\u0300-\u036f]/g, "")         // elimina los diacríticos
+    .toLowerCase();
+}
+
+/**
  * Verifica si una cancha está disponible en un rango horario específico.
  *
  * Esta función es la fuente única de verdad para la lógica de disponibilidad.
@@ -79,6 +90,10 @@ export async function getCanchasDisponibles(
   distanciaMaxKm?: number,
   capacidad?: number
 ) {
+  // Normalizar los textos de búsqueda para ignorar acentos y mayúsculas
+  const ciudadNorm = ciudad ? normalizarTexto(ciudad) : undefined;
+  const nombreNorm = nombre ? normalizarTexto(nombre) : undefined;
+
   // Si se proveyó horario y fecha, filtramos los turnos ocupados
   let canchasOcupadasIds: string[] = [];
 
@@ -130,9 +145,14 @@ export async function getCanchasDisponibles(
       ...(canchasOcupadasIds.length > 0 ? { id: { notIn: canchasOcupadasIds } } : {}),
       predio: {
         estado: "activo",
-        // Filtrar por ciudad/dirección si se proporcionó
+        // Filtrar por ciudad/dirección: busca tanto con acentos como sin ellos
         ...(ciudad
-          ? { direccion: { contains: ciudad, mode: "insensitive" } }
+          ? {
+              OR: [
+                { direccion: { contains: ciudad, mode: "insensitive" } },
+                { direccion: { contains: ciudadNorm!, mode: "insensitive" } },
+              ],
+            }
           : {}),
         // Filtrar por predios cercanos si calculamos proximidad
         ...(prediosCercanosIds
@@ -147,9 +167,9 @@ export async function getCanchasDisponibles(
         ? {
             OR: [
               { nombre: { contains: nombre, mode: "insensitive" } },
-              {
-                predio: { nombre: { contains: nombre, mode: "insensitive" } },
-              },
+              { nombre: { contains: nombreNorm!, mode: "insensitive" } },
+              { predio: { nombre: { contains: nombre, mode: "insensitive" } } },
+              { predio: { nombre: { contains: nombreNorm!, mode: "insensitive" } } },
             ],
           }
         : {}),

@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #45E494; /* Verde brillante estilo Picadito.app */
-  --color-brand-hover: #3CD085;
-  --color-brand-dim: rgba(69, 228, 148, 0.15);
-  --color-brand-dark: #2F9E66;
+  --color-brand: #4CAF7D; /* Verde mate y natural */
+  --color-brand-hover: #3D9E6E;
+  --color-brand-dim: rgba(76, 175, 125, 0.15);
+  --color-brand-dark: #2E7A55;
   
   --color-surface: #101612; /* Aún más oscuro para contraste */
   --color-surface-hover: #17211B;
