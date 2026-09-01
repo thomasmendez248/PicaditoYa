@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         fecha: fechaDate,
         horaInicio,
         horaFin,
-        estado: "confirmado",
+        estado: "pendiente",
         precioAlMomentoReserva: precioProporcional,
       },
     });

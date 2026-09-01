@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, CircleDot, CalendarDays } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { X, LayoutDashboard, CircleDot, CalendarDays, LogOut } from "lucide-react";
 
 export default function RadialNavMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,31 +35,45 @@ export default function RadialNavMenu() {
 
   const navItems = [
     {
+      id: "dashboard",
       label: "Dashboard",
-      sublabel: "Métricas y Resumen",
+      sublabel: "Métricas",
       href: "/admin",
       icon: LayoutDashboard,
       delay: "0ms",
-      // Diagonal superior derecha ↗
-      positionClass: "translate-x-20 -translate-y-20 sm:translate-x-24 sm:-translate-y-20",
+      mobile: { x: -96, y: -63 },
+      desktop: { x: 76, y: -93 },
     },
     {
+      id: "canchas",
       label: "Canchas",
-      sublabel: "Crear y Gestionar",
+      sublabel: "Gestión",
       href: "/admin/canchas",
       icon: CircleDot,
-      delay: "50ms",
-      // Hacia la derecha directo →
-      positionClass: "translate-x-24 translate-y-0 sm:translate-x-28 sm:translate-y-0",
+      delay: "40ms",
+      mobile: { x: -37, y: -109 },
+      desktop: { x: 115, y: -35 },
     },
     {
+      id: "turnos",
       label: "Turnos",
-      sublabel: "Turnero y Agenda",
+      sublabel: "Agenda",
       href: "/admin/turnos",
       icon: CalendarDays,
-      delay: "100ms",
-      // Diagonal inferior derecha ↘
-      positionClass: "translate-x-20 translate-y-20 sm:translate-x-24 sm:translate-y-20",
+      delay: "80ms",
+      mobile: { x: 37, y: -109 },
+      desktop: { x: 115, y: 35 },
+    },
+    {
+      id: "logout",
+      label: "Salir",
+      sublabel: "Cerrar Sesión",
+      href: "#logout",
+      isLogout: true,
+      icon: LogOut,
+      delay: "120ms",
+      mobile: { x: 96, y: -63 },
+      desktop: { x: 76, y: 93 },
     },
   ];
 
@@ -72,20 +87,20 @@ export default function RadialNavMenu() {
         />
       )}
 
-      {/* ── BOTÓN FLOTANTE LATERAL IZQUIERDO EN EL MEDIO ── */}
+      {/* ── BOTÓN FLOTANTE: INFERIOR CENTRO EN MOBILE | LATERAL IZQUIERDO EN DESKTOP ── */}
       <div
         ref={menuRef}
-        className="fixed left-5 sm:left-7 top-1/2 -translate-y-1/2 z-50 select-none"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 sm:bottom-auto sm:left-7 sm:top-1/2 sm:-translate-y-1/2 sm:translate-x-0 z-50 select-none"
       >
         <div className="relative">
           
-          {/* Botón Principal (3 líneas) */}
+          {/* Botón Principal */}
           <button
             onClick={() => setIsOpen(!isOpen)}
             className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl relative z-50 group border ${
               isOpen
                 ? "bg-brand text-surface border-brand rotate-90 scale-110 shadow-[0_0_25px_rgba(69,228,148,0.7)]"
-                : "bg-[#0f1712]/90 backdrop-blur-xl border-white/20 text-white hover:border-brand/80 hover:bg-brand hover:text-surface hover:scale-110 hover:shadow-[0_0_20px_rgba(69,228,148,0.5)]"
+                : "bg-[#0f1712]/95 backdrop-blur-xl border-white/20 text-white hover:border-brand/80 hover:bg-brand hover:text-surface hover:scale-110 hover:shadow-[0_0_20px_rgba(69,228,148,0.5)]"
             }`}
             aria-label="Abrir menú de navegación"
             title="Menú de secciones"
@@ -101,47 +116,88 @@ export default function RadialNavMenu() {
             )}
           </button>
 
-          {/* Opciones Circulares Radiales desplegadas hacia la derecha */}
+          {/* Opciones Circulares Radiales (4 Botones Centrados y Simétricos) */}
           {isOpen && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
+                const isLogout = item.isLogout;
+
+                const innerContent = (
+                  <>
+                    {/* Círculo individual de la opción */}
+                    <div
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border transition-all duration-200 shadow-2xl group-hover:scale-110 shrink-0 ${
+                        isActive
+                          ? "bg-brand text-surface border-brand shadow-[0_0_20px_rgba(69,228,148,0.6)] ring-4 ring-brand/20"
+                          : isLogout
+                          ? "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-red-500/20 text-red-400 hover:text-red-300 border-white/20 hover:border-red-500/50"
+                          : "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-brand/20 text-white hover:text-brand border-white/20 hover:border-brand/60"
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${isActive ? "stroke-[2.5]" : ""}`} />
+                    </div>
+
+                    {/* Tooltip / Cartelito con el nombre */}
+                    <div
+                      className={`bg-[#0f1712]/95 backdrop-blur-xl border px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none transition-all group-hover:scale-105 ${
+                        isLogout
+                          ? "border-white/15 group-hover:border-red-500/50"
+                          : "border-white/15 group-hover:border-brand/50"
+                      }`}
+                    >
+                      <p
+                        className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left ${
+                          isActive
+                            ? "text-brand"
+                            : isLogout
+                            ? "text-red-400"
+                            : "text-white"
+                        }`}
+                      >
+                        {item.label}
+                      </p>
+                      <p className="text-[9px] sm:text-[10px] text-white/50 hidden sm:block">{item.sublabel}</p>
+                    </div>
+                  </>
+                );
 
                 return (
                   <div
-                    key={item.href}
+                    key={item.id}
+                    style={{
+                      transitionDelay: item.delay,
+                      ["--mob-x" as any]: `${item.mobile.x}px`,
+                      ["--mob-y" as any]: `${item.mobile.y}px`,
+                      ["--desk-x" as any]: `${item.desktop.x}px`,
+                      ["--desk-y" as any]: `${item.desktop.y}px`,
+                    }}
                     className={`absolute top-0 left-0 transition-all duration-300 ease-out pointer-events-auto ${
                       isOpen
-                        ? `${item.positionClass} scale-100 opacity-100`
-                        : "translate-x-0 translate-y-0 scale-0 opacity-0 pointer-events-none"
+                        ? "scale-100 opacity-100 [transform:translate(var(--mob-x),var(--mob-y))_translate(-50%,-50%)] sm:[transform:translate(var(--desk-x),var(--desk-y))_translate(-50%,-50%)]"
+                        : "scale-0 opacity-0 pointer-events-none [transform:translate(0,0)_translate(-50%,-50%)]"
                     }`}
-                    style={{ transitionDelay: item.delay }}
                   >
-                    <Link
-                      href={item.href}
-                      onClick={() => setIsOpen(false)}
-                      className="group flex items-center gap-3 relative"
-                    >
-                      {/* Círculo individual de la opción */}
-                      <div
-                        className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border transition-all duration-200 shadow-2xl group-hover:scale-110 ${
-                          isActive
-                            ? "bg-brand text-surface border-brand shadow-[0_0_20px_rgba(69,228,148,0.6)] ring-4 ring-brand/20"
-                            : "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-brand/20 text-white hover:text-brand border-white/20 hover:border-brand/60"
-                        }`}
+                    {isLogout ? (
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          signOut({ callbackUrl: "/auth/login" });
+                        }}
+                        className="group flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 relative"
                       >
-                        <Icon className={`w-6 h-6 ${isActive ? "stroke-[2.5]" : ""}`} />
-                      </div>
-
-                      {/* Tooltip / Cartelito con el nombre */}
-                      <div className="bg-[#0f1712]/95 backdrop-blur-xl border border-white/15 px-3 py-1.5 rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none transition-all group-hover:border-brand/50 group-hover:scale-105 group-hover:translate-x-1">
-                        <p className={`text-xs font-black uppercase tracking-wider ${isActive ? "text-brand" : "text-white"}`}>
-                          {item.label}
-                        </p>
-                        <p className="text-[10px] text-white/50">{item.sublabel}</p>
-                      </div>
-                    </Link>
+                        {innerContent}
+                      </button>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsOpen(false)}
+                        className="group flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 relative"
+                      >
+                        {innerContent}
+                      </Link>
+                    )}
                   </div>
                 );
               })}

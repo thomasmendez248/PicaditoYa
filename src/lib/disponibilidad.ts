@@ -35,7 +35,7 @@ export async function checkDisponibilidad(
       fecha: {
         equals: fecha,
       },
-      estado: "confirmado",
+      estado: { in: ["confirmado", "pendiente"] as any },
       AND: [
         {
           horaInicio: {
@@ -86,7 +86,7 @@ export async function getCanchasDisponibles(
     const turnosOcupados = await prisma.turno.findMany({
       where: {
         fecha: { equals: fecha },
-        estado: "confirmado",
+        estado: { in: ["confirmado", "pendiente"] as any },
         horaInicio: { lt: horaFin },
         horaFin: { gt: horaInicio },
       },
