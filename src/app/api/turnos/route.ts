@@ -44,17 +44,10 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/turnos
- * Crea un nuevo turno. Requiere sesión activa (cualquier rol cliente).
+ * Crea un nuevo turno. Permite reservas públicas con nombre de cliente (sin requerir login).
  */
 export async function POST(request: NextRequest) {
   const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: "Debés iniciar sesión para reservar un turno" },
-      { status: 401 }
-    );
-  }
 
   const body = await request.json();
   const parsed = turnoSchema.safeParse(body);
@@ -66,7 +59,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { canchaId, fecha, horaInicio, horaFin } = parsed.data;
+  const { canchaId, fecha, horaInicio, horaFin, nombreCliente, telefonoCliente } = parsed.data;
   const fechaDate = new Date(fecha);
 
   try {
@@ -92,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     if (!disponible) {
       return NextResponse.json(
-        { error: "La cancha ya tiene un turno en ese horario" },
+        { error: "La cancha ya tiene un turno reservado en ese horario" },
         { status: 409 }
       );
     }
@@ -108,16 +101,25 @@ export async function POST(request: NextRequest) {
       ? Math.round((cancha.precioTurno * duracionMin) / 60)
       : cancha.precioTurno;
 
-    // Crear el turno
+    // Crear el turno (con clienteId si hay sesión o nombre manual)
     const turno = await prisma.turno.create({
       data: {
         canchaId,
-        clienteId: session.user.id,
+        clienteId: session?.user?.id || null,
+        nombreClienteManual: nombreCliente || (session?.user?.name ?? "Jugador"),
+        telefonoClienteManual: telefonoCliente || null,
         fecha: fechaDate,
         horaInicio,
         horaFin,
         estado: "pendiente",
         precioAlMomentoReserva: precioProporcional,
+      },
+      include: {
+        cancha: {
+          include: {
+            predio: true,
+          },
+        },
       },
     });
 

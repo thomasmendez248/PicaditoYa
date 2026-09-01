@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Bebas_Neue } from "next/font/google";
+import SessionProvider from "@/components/providers/SessionProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -35,8 +36,11 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${inter.variable} ${bebas.variable}`}>
       <body className="antialiased bg-neutral-950 text-white font-sans">
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
 }
+

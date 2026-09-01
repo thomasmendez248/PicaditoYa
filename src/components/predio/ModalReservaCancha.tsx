@@ -10,9 +10,9 @@ import {
   AlertCircle,
   Phone,
   Loader2,
-  DollarSign,
-  Users,
-  ShieldCheck,
+  User,
+  MessageCircle,
+  ArrowRight,
 } from "lucide-react";
 
 type Cancha = {
@@ -49,12 +49,15 @@ export default function ModalReservaCancha({
   const [fecha, setFecha] = useState(hoyStr);
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFin, setHoraFin] = useState("");
+  const [nombreCliente, setNombreCliente] = useState("");
+  const [telefonoCliente, setTelefonoCliente] = useState("");
 
   const [turnosOcupados, setTurnosOcupados] = useState<Array<{ horaInicio: string; horaFin: string }>>([]);
   const [cargandoSlots, setCargandoSlots] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reservaExitosa, setReservaExitosa] = useState(false);
+  const [whatsappUrlGenerado, setWhatsappUrlGenerado] = useState<string | null>(null);
 
   const duracionCancha = cancha?.duracionTurnoMinutos || 60;
 
@@ -114,6 +117,7 @@ export default function ModalReservaCancha({
       setFecha(hoyStr);
       setError(null);
       setReservaExitosa(false);
+      setWhatsappUrlGenerado(null);
 
       const dur = cancha.duracionTurnoMinutos || 60;
       if (slots.length > 0) {
@@ -159,10 +163,17 @@ export default function ModalReservaCancha({
 
   if (!isOpen || !cancha) return null;
 
-  // Confirmar reserva directa (plataforma)
-  const handleReservarOnline = async () => {
+  // Registrar el turno y abrir WhatsApp directamente
+  const handleReservarYWhatsApp = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!nombreCliente.trim()) {
+      setError("Por favor ingresá tu nombre para registrar la reserva");
+      return;
+    }
+
     if (!horaInicio || !horaFin) {
-      setError("Por favor seleccioná un turno");
+      setError("Por favor seleccioná un horario para el turno");
       return;
     }
 
@@ -175,6 +186,7 @@ export default function ModalReservaCancha({
     setError(null);
 
     try {
+      // 1. Guardar turno en la base de datos
       const res = await fetch("/api/turnos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -183,32 +195,32 @@ export default function ModalReservaCancha({
           fecha,
           horaInicio,
           horaFin,
+          nombreCliente: nombreCliente.trim(),
+          telefonoCliente: telefonoCliente.trim() || undefined,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 401) {
-          window.location.href = `/auth/login?callbackUrl=/predio/${predio.id}`;
-          return;
-        }
         throw new Error(data.error || "No se pudo registrar el turno");
       }
 
+      // 2. Construir enlace a WhatsApp con el predio
+      const numLimpio = (predio.telefono || "3515138542").replace(/\D/g, "");
+      const mensaje = `Hola! Quiero reservar la cancha *${cancha.nombre}* en *${predio.nombre}* para el día *${fecha}* de *${horaInicio} a ${horaFin}* hs.\n\n*Nombre:* ${nombreCliente.trim()}${telefonoCliente ? `\n*Teléfono:* ${telefonoCliente.trim()}` : ""}\n*Monto estimado:* $${precioCalculado.toLocaleString("es-AR")}`;
+      const urlWhatsapp = `https://wa.me/${numLimpio}?text=${encodeURIComponent(mensaje)}`;
+
+      setWhatsappUrlGenerado(urlWhatsapp);
       setReservaExitosa(true);
+
+      // Abrir WhatsApp en una nueva pestaña
+      window.open(urlWhatsapp, "_blank");
     } catch (err: any) {
       setError(err.message || "Error al procesar la reserva");
     } finally {
       setGuardando(false);
     }
   };
-
-  // Mensaje para WhatsApp
-  const whatsappUrl = predio.telefono
-    ? `https://wa.me/${predio.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(
-        `Hola! Quiero reservar la cancha *${cancha.nombre}* en *${predio.nombre}* para el día *${fecha}* de *${horaInicio} a ${horaFin}* (${duracionMinutosReal} min - Total: $${precioCalculado.toLocaleString("es-AR")}).`
-      )}`
-    : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
@@ -218,9 +230,9 @@ export default function ModalReservaCancha({
         <div className="flex items-center justify-between p-6 sm:p-7 border-b border-white/10">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-brand">Elegir Horario</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-brand">Reservar Turno</span>
               <span className="text-[10px] font-black text-brand bg-brand/10 border border-brand/20 px-2.5 py-0.5 rounded-full">
-                Turnos de {duracionCancha} min
+                {duracionCancha} min
               </span>
             </div>
             <h2 className="text-2xl font-display font-black text-white uppercase tracking-wide mt-0.5">
@@ -249,28 +261,48 @@ export default function ModalReservaCancha({
           )}
 
           {reservaExitosa ? (
-            <div className="p-8 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+            <div className="p-6 text-center space-y-4 animate-fade-in">
+              <div className="w-16 h-16 rounded-full bg-brand/20 border border-brand/40 text-brand flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(69,228,148,0.3)]">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
+
               <h3 className="text-2xl font-display font-black text-white uppercase tracking-wide">
-                ¡Solicitud Registrada!
+                ¡Turno Registrado!
               </h3>
-              <p className="text-sm text-white/70">
-                Tu turno para el <strong>{fecha}</strong> de <strong>{horaInicio} a {horaFin}</strong> ({duracionMinutosReal} min) en <strong>{cancha.nombre}</strong> ha sido solicitado por <strong>${precioCalculado.toLocaleString("es-AR")}</strong>.
+
+              <p className="text-sm text-white/80">
+                Tu reserva para <strong className="text-white">{nombreCliente}</strong> el día <strong className="text-white">{fecha}</strong> de <strong className="text-brand">{horaInicio} a {horaFin} hs</strong> ha sido guardada.
               </p>
-              <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs flex items-center justify-center gap-2">
-                <span>El turno se encuentra <strong>PENDIENTE</strong> hasta que el administrador del predio lo confirme.</span>
+
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-300 text-xs text-balance">
+                Se abrió WhatsApp para que coordines directamente con <strong>{predio.nombre}</strong>. Si no se abrió la ventana, podés hacer clic en el botón de abajo.
               </div>
-              <button
-                onClick={onClose}
-                className="bg-brand hover:bg-brand-hover text-surface font-black px-8 py-3 rounded-full text-sm transition-all mt-4"
-              >
-                Entendido
-              </button>
+
+              <div className="space-y-3 pt-2">
+                {whatsappUrlGenerado && (
+                  <a
+                    href={whatsappUrlGenerado}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-surface font-black text-sm py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Abrir Chat de WhatsApp</span>
+                  </a>
+                )}
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full bg-white/10 hover:bg-white/15 text-white font-bold text-xs py-3 rounded-2xl transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           ) : (
-            <>
+            <form onSubmit={handleReservarYWhatsApp} className="space-y-5">
+              
               {/* 1. Selector de Fecha */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-2">
@@ -297,7 +329,7 @@ export default function ModalReservaCancha({
                   {cargandoSlots && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />}
                 </div>
 
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-52 overflow-y-auto pr-1">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto pr-1">
                   {slots.map((slot) => {
                     const ocupado = isSlotOcupado(slot);
                     const seleccionado = horaInicio === slot;
@@ -309,7 +341,7 @@ export default function ModalReservaCancha({
                         type="button"
                         disabled={ocupado}
                         onClick={() => seleccionarBloque(slot)}
-                        className={`py-2.5 px-3 rounded-2xl border text-xs font-mono font-bold transition-all flex flex-col items-center justify-center gap-0.5 ${
+                        className={`py-2 px-3 rounded-xl border text-xs font-mono font-bold transition-all flex flex-col items-center justify-center gap-0.5 ${
                           seleccionado
                             ? "bg-brand text-surface border-brand shadow-[0_0_12px_rgba(69,228,148,0.4)] scale-105"
                             : ocupado
@@ -327,55 +359,49 @@ export default function ModalReservaCancha({
                 </div>
               </div>
 
-              {/* 3. Horario Pactado */}
+              {/* 3. Tus Datos (Nombre y Teléfono) */}
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">
-                    3. Horario del Turno
-                  </span>
-                  <span className="text-xs font-bold text-brand">
-                    {duracionMinutosReal} min ({duracionMinutosReal === 30 ? "Media hora" : `${(duracionMinutosReal / 60).toFixed(1).replace(".0", "")} h`})
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-white/70 block">
+                  3. Tus Datos para la Reserva
+                </span>
+
+                <div className="space-y-3">
                   <div>
-                    <label className="block text-[10px] text-white/50 mb-1">Hora Inicio</label>
+                    <label className="block text-[10px] text-white/50 mb-1">Nombre y Apellido *</label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
                       <input
-                        type="time"
-                        value={horaInicio}
-                        onChange={(e) => {
-                          const newIni = e.target.value;
-                          setHoraInicio(newIni);
-                          if (newIni) setHoraFin(calcularHoraFin(newIni, duracionCancha));
-                        }}
-                        className="w-full bg-surface border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-brand [color-scheme:dark]"
+                        type="text"
+                        required
+                        placeholder="Ej: Juan Pérez"
+                        value={nombreCliente}
+                        onChange={(e) => setNombreCliente(e.target.value)}
+                        className="w-full bg-surface border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-brand"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-white/50 mb-1">Hora Fin</label>
+                    <label className="block text-[10px] text-white/50 mb-1">Teléfono / WhatsApp (opcional)</label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
                       <input
-                        type="time"
-                        value={horaFin}
-                        onChange={(e) => setHoraFin(e.target.value)}
-                        className="w-full bg-surface border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-brand [color-scheme:dark]"
+                        type="tel"
+                        placeholder="Ej: 351 123 4567"
+                        value={telefonoCliente}
+                        onChange={(e) => setTelefonoCliente(e.target.value)}
+                        className="w-full bg-surface border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-brand"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Resumen y Precio Proporcional */}
+              {/* Resumen de Reserva */}
               <div className="flex items-center justify-between p-4 rounded-2xl bg-brand/10 border border-brand/20">
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-brand block">
-                    Costo del Turno ({duracionMinutosReal} min)
+                    Total Estimado ({duracionMinutosReal} min)
                   </span>
                   <span className="text-xs text-white/70">
                     {cancha.nombre} • {horaInicio || "--:--"} a {horaFin || "--:--"}
@@ -385,37 +411,26 @@ export default function ModalReservaCancha({
                   <span className="text-2xl font-mono font-black text-brand">
                     ${precioCalculado.toLocaleString("es-AR")}
                   </span>
-                  {duracionMinutosReal === 30 && (
-                    <span className="text-[10px] text-white/50 block">Media hora (50%)</span>
-                  )}
                 </div>
               </div>
 
-              {/* Botones de Reserva */}
-              <div className="space-y-2.5 pt-2">
+              {/* Botón Principal: Reservar y WhatsApp */}
+              <div className="pt-2">
                 <button
-                  type="button"
-                  onClick={handleReservarOnline}
-                  disabled={guardando || !horaInicio || !horaFin || duracionMinutosReal <= 0}
-                  className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 text-surface font-black text-sm py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(69,228,148,0.3)] hover:scale-[1.01]"
+                  type="submit"
+                  disabled={guardando || !nombreCliente.trim() || !horaInicio || !horaFin}
+                  className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-surface font-black text-sm py-4 rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-[1.01]"
                 >
-                  {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Confirmar Reserva (${precioCalculado.toLocaleString("es-AR")})
+                  {guardando ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <MessageCircle className="w-5 h-5 fill-current" />
+                  )}
+                  <span>Pedir Turno y Abrir WhatsApp</span>
                 </button>
-
-                {whatsappUrl && (
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/50 text-emerald-400 font-bold text-sm py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all"
-                  >
-                    <Phone className="w-4 h-4" />
-                    Reservar por WhatsApp
-                  </a>
-                )}
               </div>
-            </>
+
+            </form>
           )}
 
         </div>
