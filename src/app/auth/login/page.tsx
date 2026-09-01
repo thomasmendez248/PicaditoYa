@@ -43,7 +43,10 @@ export default function LoginPage() {
           try {
             const res = await fetch("/api/auth/session");
             const sess = await res.json();
-            if (["admin", "empleado", "super_admin"].includes(sess?.user?.rol)) {
+            const rol = sess?.user?.rol;
+            if (rol === "super_admin") {
+              router.push("/super-admin");
+            } else if (["admin", "empleado"].includes(rol)) {
               router.push("/admin");
             } else {
               router.push("/cliente/mis-turnos");

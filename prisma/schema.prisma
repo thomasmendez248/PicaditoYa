@@ -93,6 +93,7 @@ model VerificationToken {
 model Usuario {
   id              String      @id @default(cuid())
   nombre          String
+  apellido        String?
   email           String      @unique
   emailVerified   DateTime?
   telefono        String?

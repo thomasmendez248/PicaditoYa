@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ModalReservaCancha from "@/components/predio/ModalReservaCancha";
@@ -42,10 +44,19 @@ type Predio = {
 };
 
 export default function PredioDetalleClient({ predio }: { predio: Predio }) {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [canchaSeleccionada, setCanchaSeleccionada] = useState<Cancha | null>(null);
   const [modalReservaOpen, setModalReservaOpen] = useState(false);
 
   const abrirModalReserva = (cancha: Cancha) => {
+    if (!session) {
+      // Redirigir al login con callback a esta página
+      router.push(`/auth/login?callbackUrl=${encodeURIComponent(pathname)}`);
+      return;
+    }
     setCanchaSeleccionada(cancha);
     setModalReservaOpen(true);
   };

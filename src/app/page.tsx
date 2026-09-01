@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Search, MapPin, Clock, Calendar, ChevronRight, Loader2, Map as MapIcon, SlidersHorizontal, Crosshair } from "lucide-react";
+import { Search, MapPin, Clock, Calendar, ChevronRight, Loader2, Map as MapIcon, SlidersHorizontal, Crosshair, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
@@ -186,22 +186,6 @@ export default function HomePage() {
 
               {/* Filtros Secundarios */}
               <div className="flex flex-col sm:flex-row gap-4 mt-1">
-                {/* Distancia */}
-                <div className="flex-1 space-y-2">
-                  <div className="flex justify-between items-center px-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-white/60">Radio máximo</label>
-                    <span className="text-xs font-black text-brand">{distancia} km</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="1" 
-                    max="50" 
-                    value={distancia} 
-                    onChange={(e) => setDistancia(Number(e.target.value))}
-                    className="w-full accent-brand h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                  />
-                </div>
-
                 {/* Tipo de Cancha */}
                 <div className="flex-1 space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-white/60 px-1">Tipo de cancha</label>
@@ -257,7 +241,7 @@ export default function HomePage() {
                 onClick={buscar}
                 disabled={cargando}
                 aria-label="Buscar canchas disponibles"
-                className="w-full mt-2 bg-brand hover:bg-brand-hover text-surface font-black text-base px-6 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(69,228,148,0.3)] hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white focus:outline-none"
+                className="w-full mt-2 bg-brand hover:bg-brand-hover text-surface font-black text-base px-6 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(76,175,125,0.3)] hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white focus:outline-none"
               >
                 {cargando ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : <Search className="w-5 h-5" aria-hidden="true" />}
                 Buscar Canchas
@@ -307,7 +291,7 @@ export default function HomePage() {
                     onClick={() => setCanchaSeleccionada(cancha.id)}
                     className={`group p-6 rounded-[2rem] border transition-all duration-200 cursor-pointer ${
                       canchaSeleccionada === cancha.id
-                        ? "border-brand bg-brand/15 backdrop-blur-xl shadow-[0_0_25px_rgba(69,228,148,0.2)] ring-1 ring-brand"
+                        ? "border-brand bg-brand/15 backdrop-blur-xl shadow-[0_0_25px_rgba(76,175,125,0.2)] ring-1 ring-brand"
                         : "border-white/10 bg-[#0f1712]/90 backdrop-blur-xl hover:border-brand/50 hover:bg-[#0f1712] shadow-xl hover:scale-[1.01]"
                     }`}
                   >
@@ -370,24 +354,34 @@ export default function HomePage() {
 
         </main>
         
-        {/* ── SECCIÓN CTA: REGISTRÁ TU PREDIO ── */}
-        <section className="w-full relative z-10 mt-8">
-          <div className="max-w-7xl mx-auto px-8 md:px-16 lg:px-24 py-16 flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
-            <div className="flex flex-col gap-3 max-w-2xl relative z-10">
-              <h2 className="text-3xl md:text-5xl font-display uppercase tracking-tight text-white drop-shadow-sm">
+        {/* ── SECCIÓN CTA: REGISTRÁ TU PREDIO (Tarjeta Destacada) ── */}
+        <section className="w-full relative z-10 px-6 sm:px-8 lg:px-24 my-16">
+          <div className="max-w-7xl mx-auto bg-[#0a110d]/95 backdrop-blur-2xl border border-white/15 rounded-[3rem] p-8 sm:p-12 lg:p-16 shadow-[0_25px_70px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-10">
+            {/* Brillos ambientales decorativos de fondo */}
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-brand/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-brand/5 via-transparent to-transparent pointer-events-none" />
+
+            <div className="flex flex-col items-start gap-4 max-w-2xl relative z-10">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand/15 border border-brand/30 text-brand text-xs font-black tracking-widest uppercase shadow-sm">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Para Complejos Deportivos</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-display uppercase tracking-tight text-white drop-shadow-md">
                 ¿Tenés un <span className="text-brand">complejo deportivo?</span>
               </h2>
-              <p className="text-white/70 text-lg md:text-xl text-balance mt-2">
-                Sumate a PicaditoYa y automatizá tus turnos. Conseguí más reservas y olvidate de los mensajes de WhatsApp.
+              <p className="text-white/70 text-base md:text-lg text-balance leading-relaxed">
+                Sumate a PicaditoYa y automatizá la gestión de tus turnos. Conseguí más reservas para tus canchas y olvidate de los mensajes interminables de WhatsApp.
               </p>
             </div>
 
-            <div className="shrink-0 relative z-10 w-full md:w-auto mt-4 md:mt-0">
+            <div className="shrink-0 relative z-10 w-full lg:w-auto">
               <Link 
                 href="/registrar-cancha"
-                className="bg-brand hover:bg-brand-hover text-surface font-bold text-lg px-10 py-5 rounded-2xl flex items-center justify-center transition-all hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-white outline-none w-full md:w-auto text-center shadow-[0_0_20px_rgba(69,228,148,0.3)]"
+                className="bg-brand hover:bg-brand-hover text-surface font-black text-base md:text-lg px-9 py-5 rounded-2xl flex items-center justify-center gap-2 transition-all hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-white outline-none w-full lg:w-auto text-center shadow-[0_0_30px_rgba(76,175,125,0.35)]"
               >
-                Registrar Cancha
+                <span>Registrar mi Cancha</span>
+                <ChevronRight className="w-5 h-5" />
               </Link>
             </div>
           </div>
