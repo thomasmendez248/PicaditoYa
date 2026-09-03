@@ -40,31 +40,31 @@ export async function GET(request: NextRequest) {
     const primerDiaMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
     const ultimoDiaMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
 
-    // Turnos de hoy
-    const turnosHoy = await prisma.turno.findMany({
-      where: {
-        canchaId: { in: canchaIds },
-        fecha: { equals: hoyDate },
-        estado: { notIn: ["cancelado_a_tiempo", "cancelado_tarde"] },
-      },
-      include: {
-        cancha: { select: { nombre: true } },
-        cliente: { select: { nombre: true, telefono: true } },
-      },
-      orderBy: { horaInicio: "asc" },
-    });
-
-    // Turnos del mes
-    const turnosMes = await prisma.turno.findMany({
-      where: {
-        canchaId: { in: canchaIds },
-        fecha: {
-          gte: primerDiaMes,
-          lte: ultimoDiaMes,
+    // Consultas en paralelo para eliminar cascada de base de datos
+    const [turnosHoy, turnosMes] = await Promise.all([
+      prisma.turno.findMany({
+        where: {
+          canchaId: { in: canchaIds },
+          fecha: { equals: hoyDate },
+          estado: { notIn: ["cancelado_a_tiempo", "cancelado_tarde"] },
         },
-        estado: { notIn: ["cancelado_a_tiempo", "cancelado_tarde"] },
-      },
-    });
+        include: {
+          cancha: { select: { nombre: true } },
+          cliente: { select: { nombre: true, telefono: true } },
+        },
+        orderBy: { horaInicio: "asc" },
+      }),
+      prisma.turno.findMany({
+        where: {
+          canchaId: { in: canchaIds },
+          fecha: {
+            gte: primerDiaMes,
+            lte: ultimoDiaMes,
+          },
+          estado: { notIn: ["cancelado_a_tiempo", "cancelado_tarde"] },
+        },
+      }),
+    ]);
 
     // Cálculos
     const turnosConfirmadosHoy = turnosHoy.filter((t) => t.estado === "confirmado" || t.estado === "completado");

@@ -106,10 +106,15 @@ export async function POST(request: NextRequest) {
     const fechaDate = new Date(fecha);
 
     const isSuperAdmin = session.user.rol === "super_admin";
-    const cancha = await prisma.cancha.findUnique({
-      where: { id: canchaId },
-      include: { predio: true },
-    });
+    
+    // Consultar cancha y disponibilidad en paralelo para eliminar cascada
+    const [cancha, disponible] = await Promise.all([
+      prisma.cancha.findUnique({
+        where: { id: canchaId },
+        include: { predio: true },
+      }),
+      checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin),
+    ]);
 
     if (!cancha) {
       return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
@@ -119,8 +124,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sin permisos para esta cancha" }, { status: 403 });
     }
 
-    // Verificar si hay turnos superpuestos
-    const disponible = await checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin);
     if (!disponible) {
       return NextResponse.json(
         { error: "El horario seleccionado ya se encuentra ocupado por otro turno" },
