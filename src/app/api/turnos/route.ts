@@ -63,11 +63,14 @@ export async function POST(request: NextRequest) {
   const fechaDate = new Date(fecha);
 
   try {
-    // Verificar que la cancha existe y su predio está activo
-    const cancha = await prisma.cancha.findUnique({
-      where: { id: canchaId },
-      include: { predio: true },
-    });
+    // Verificar cancha y disponibilidad en paralelo para eliminar cascada
+    const [cancha, disponible] = await Promise.all([
+      prisma.cancha.findUnique({
+        where: { id: canchaId },
+        include: { predio: true },
+      }),
+      checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin),
+    ]);
 
     if (!cancha) {
       return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
@@ -79,9 +82,6 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
-
-    // Verificar disponibilidad (sin superposición)
-    const disponible = await checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin);
 
     if (!disponible) {
       return NextResponse.json(

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ModalReservaCancha from "@/components/predio/ModalReservaCancha";
@@ -50,12 +51,20 @@ export default function PredioDetalleClient({ predio }: { predio: Predio }) {
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col font-sans text-text-main overflow-x-hidden bg-cover bg-center bg-fixed relative"
-      style={{ backgroundImage: "url('/hero-bg.jpg')" }}
-    >
+    <div className="min-h-screen flex flex-col font-sans text-text-main overflow-x-hidden relative">
+      {/* Imagen de fondo optimizada con Next Image */}
+      <Image
+        src="/hero-bg.jpg"
+        alt="PicaditoYa Fondo Predio"
+        fill
+        priority
+        quality={80}
+        sizes="100vw"
+        className="object-cover object-center fixed inset-0 pointer-events-none -z-10"
+      />
+      
       {/* Capa oscura global */}
-      <div className="absolute inset-0 bg-surface/95 z-0" />
+      <div className="fixed inset-0 bg-surface/95 -z-10 pointer-events-none" />
 
       <div className="relative z-10 flex flex-col min-h-screen w-full">
         <Navbar />

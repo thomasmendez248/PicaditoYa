@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { Search, MapPin, Clock, Calendar, ChevronRight, Loader2, Map as MapIcon, SlidersHorizontal, Crosshair, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -108,18 +109,26 @@ export default function HomePage() {
     buscar();
   }, []);
 
-  const prediosEnMapa = canchas.map((c) => c.predio);
-  const prediosUnicos = prediosEnMapa.filter(
-    (p, i, arr) => arr.findIndex((x) => x.id === p.id) === i
+  // Cálculo O(N) eficiente de predios únicos
+  const prediosUnicos = Array.from(
+    new Map(canchas.map((c) => [c.predio.id, c.predio])).values()
   );
 
   return (
-    <div 
-      className="min-h-screen flex flex-col font-sans text-text-main overflow-x-hidden bg-cover bg-center bg-fixed relative"
-      style={{ backgroundImage: "url('/hero-bg.jpg')" }}
-    >
+    <div className="min-h-screen flex flex-col font-sans text-text-main overflow-x-hidden relative">
+      {/* Imagen de fondo optimizada con Next Image */}
+      <Image
+        src="/hero-bg.jpg"
+        alt="PicaditoYa Fondo"
+        fill
+        priority
+        quality={80}
+        sizes="100vw"
+        className="object-cover object-center fixed inset-0 pointer-events-none -z-10"
+      />
+      
       {/* Capa oscura global para atenuar fuertemente la foto y que no moleste */}
-      <div className="absolute inset-0 bg-surface/95 z-0" />
+      <div className="fixed inset-0 bg-surface/95 -z-10 pointer-events-none" />
       
       {/* Contenedor relativo para el contenido */}
       <div className="relative z-10 flex flex-col min-h-screen w-full">
