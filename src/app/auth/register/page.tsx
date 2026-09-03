@@ -121,12 +121,15 @@ function RegisterForm() {
 
               {/* Logo + Título */}
               <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center mx-auto mb-3">
                   <MapPin className="w-8 h-8 text-brand" />
                 </div>
-                <h1 className="text-2xl font-black text-white tracking-tight">Crear cuenta</h1>
+                <span className="inline-block text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-brand/10 text-brand border border-brand/20 mb-2">
+                  Cuenta de Jugador / Cliente
+                </span>
+                <h1 className="text-2xl font-black text-white tracking-tight">Creá tu cuenta de jugador</h1>
                 <p className="text-text-muted text-sm mt-1">
-                  Reservá canchas en segundos, sin llamadas
+                  Pedí y reservá turnos en tus canchas favoritas al instante y gestioná tus partidos
                 </p>
               </div>
 
@@ -248,19 +251,25 @@ function RegisterForm() {
                   className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm mt-2"
                 >
                   {cargando ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Creando cuenta...</>
+                    <><Loader2 className="w-5 h-5 animate-spin" /> Creando tu cuenta...</>
                   ) : (
-                    "Crear cuenta gratis"
+                    "Crear cuenta de Jugador"
                   )}
                 </button>
               </form>
 
               {/* Link a login */}
-              <div className="mt-6 pt-6 border-t border-border text-center">
+              <div className="mt-6 pt-6 border-t border-border text-center space-y-3">
                 <p className="text-sm text-text-muted">
                   ¿Ya tenés cuenta?{" "}
                   <Link href="/auth/login" className="text-brand hover:text-brand-hover font-semibold transition-colors">
                     Iniciá sesión
+                  </Link>
+                </p>
+                <p className="text-xs text-text-muted/60">
+                  ¿Sos dueño de un complejo deportivo?{" "}
+                  <Link href="/registrar-cancha" className="text-white hover:text-brand transition-colors font-medium">
+                    Registrá tu predio acá
                   </Link>
                 </p>
               </div>

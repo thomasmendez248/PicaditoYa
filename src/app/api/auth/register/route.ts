@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
+    // Todo usuario que se registra desde la web pública es siempre de tipo "cliente" (jugador que pide turnos)
     await prisma.usuario.create({
       data: {
         nombre,
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
         telefono,
         passwordHash,
         rol: "cliente",
+        activo: true,
       },
     });
 

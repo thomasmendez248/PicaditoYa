@@ -16,7 +16,6 @@ async function main() {
       passwordHash,
       rol: RolUsuario.admin,
       telefono: "351-456-7890",
-      maxPredios: 3,
     },
     create: {
       email: "admin@lacantera.com",
@@ -24,7 +23,6 @@ async function main() {
       passwordHash,
       rol: RolUsuario.admin,
       telefono: "351-456-7890",
-      maxPredios: 3,
     },
   });
 

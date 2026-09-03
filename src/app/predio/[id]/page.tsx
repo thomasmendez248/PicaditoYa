@@ -15,10 +15,18 @@ export default async function PredioPaginaPublica({
       canchas: {
         orderBy: { nombre: "asc" },
       },
+      admin: {
+        select: { fechaVencimientoSuscripcion: true, activo: true },
+      },
     },
   });
 
-  if (!predio || predio.estado !== "activo") {
+  const ahora = new Date();
+  const adminVencido = predio?.admin?.fechaVencimientoSuscripcion
+    ? new Date(predio.admin.fechaVencimientoSuscripcion) < ahora
+    : true;
+
+  if (!predio || predio.estado !== "activo" || adminVencido || predio.admin?.activo === false) {
     notFound();
   }
 

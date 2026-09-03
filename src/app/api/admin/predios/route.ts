@@ -13,7 +13,10 @@ export async function GET() {
   try {
     const usuario = await prisma.usuario.findUnique({
       where: { id: session.user.id },
-      select: { maxPredios: true, rol: true },
+      select: {
+        rol: true,
+        planMembresia: { select: { maxPredios: true } },
+      },
     });
 
     const isSuperAdmin = usuario?.rol === "super_admin";
@@ -22,15 +25,14 @@ export async function GET() {
       where: isSuperAdmin ? {} : { adminId: session.user.id },
       include: {
         _count: {
-          select: {
-            canchas: true,
-          },
+          select: { canchas: true },
         },
       },
       orderBy: { nombre: "asc" },
     });
 
-    const maxPredios = isSuperAdmin ? 999 : (usuario?.maxPredios ?? 1);
+    // maxPredios viene del plan asignado; sin plan = 1 (Común por defecto)
+    const maxPredios = isSuperAdmin ? 999 : (usuario?.planMembresia?.maxPredios ?? 1);
     const puedeCrearMas = predios.length < maxPredios;
 
     return NextResponse.json({
@@ -54,11 +56,15 @@ export async function POST(request: NextRequest) {
 
   const usuario = await prisma.usuario.findUnique({
     where: { id: session.user.id },
-    select: { maxPredios: true, rol: true },
+    select: {
+      rol: true,
+      planMembresia: { select: { maxPredios: true, nombre: true } },
+    },
   });
 
   const isSuperAdmin = usuario?.rol === "super_admin";
-  const maxPredios = isSuperAdmin ? 999 : (usuario?.maxPredios ?? 1);
+  const maxPredios = isSuperAdmin ? 999 : (usuario?.planMembresia?.maxPredios ?? 1);
+  const nombrePlan = usuario?.planMembresia?.nombre ?? "Común";
 
   const totalActual = await prisma.predio.count({
     where: { adminId: session.user.id },
@@ -67,7 +73,7 @@ export async function POST(request: NextRequest) {
   if (!isSuperAdmin && totalActual >= maxPredios) {
     return NextResponse.json(
       {
-        error: `Has alcanzado el límite de predios permitidos (${maxPredios}) para tu plan actual. Contactá a soporte para ampliar tu plan.`,
+        error: `Alcanzaste el límite de ${maxPredios} predio(s) del plan "${nombrePlan}". Contactá a soporte para mejorar tu plan.`,
       },
       { status: 403 }
     );

@@ -92,6 +92,23 @@ model VerificationToken {
 // DOMAIN MODELS
 // ─────────────────────────────────────────────
 
+// Plan de membresía SaaS: define los límites de cada tier
+model PlanMembresia {
+  id             String    @id @default(cuid())
+  nombre         String    @unique // "Común", "Plus", etc.
+  maxPredios     Int       @default(1)
+  precioMensual  Float
+  descripcion    String?
+  activo         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  usuarios       Usuario[]
+  pagosAbono     PagoAbono[]
+
+  @@map("planes_membresia")
+}
+
 model Usuario {
   id              String      @id @default(cuid())
   nombre          String
@@ -102,10 +119,14 @@ model Usuario {
   passwordHash    String?     @map("password_hash")
   image           String?
   rol             RolUsuario  @default(cliente)
+  activo          Boolean     @default(true)
 
   // Solo para admin y empleado
   predioId        String?     @map("predio_id")
-  maxPredios      Int         @default(1) @map("max_predios")
+
+  // Plan de membresía (solo para admin)
+  planMembresiaId              String?   @map("plan_membresia_id")
+  fechaVencimientoSuscripcion  DateTime? @map("fecha_vencimiento_suscripcion")
 
   // Stats de asistencia (solo aplica a clientes)
   puntajeAsistencia  Float?  @map("puntaje_asistencia") // porcentaje 0-100
@@ -117,14 +138,17 @@ model Usuario {
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
   // Relations
-  predio          Predio?     @relation("EmpleadosDelPredio", fields: [predioId], references: [id])
-  predioAdminDe   Predio[]    @relation("AdminDelPredio")
-  turnos          Turno[]     @relation("TurnosDelCliente")
+  predio          Predio?        @relation("EmpleadosDelPredio", fields: [predioId], references: [id])
+  predioAdminDe   Predio[]       @relation("AdminDelPredio")
+  planMembresia   PlanMembresia? @relation(fields: [planMembresiaId], references: [id])
+  turnos          Turno[]        @relation("TurnosDelCliente")
   accounts        Account[]
   sessions        Session[]
+  pagosAbono      PagoAbono[]
 
   @@index([predioId])
   @@index([rol])
+  @@index([planMembresiaId])
   @@map("usuarios")
 }
 
@@ -147,7 +171,6 @@ model Predio {
   admin                   Usuario      @relation("AdminDelPredio", fields: [adminId], references: [id])
   empleados               Usuario[]    @relation("EmpleadosDelPredio")
   canchas                 Cancha[]
-  pagosAbono              PagoAbono[]
 
   @@index([adminId])
   @@index([estado])
@@ -208,17 +231,21 @@ model Turno {
 
 model PagoAbono {
   id                String     @id @default(cuid())
-  predioId          String     @map("predio_id")
+  // El pago ahora está asociado al admin (usuario) y a su plan
+  adminId           String     @map("admin_id")
+  planId            String?    @map("plan_id")
   mesCorrespondiente DateTime  @map("mes_correspondiente") @db.Date
   monto             Float
   estado            EstadoPago @default(pendiente)
   fechaPago         DateTime?  @map("fecha_pago")
+  diasSumados       Int        @default(30) @map("dias_sumados")
   createdAt         DateTime   @default(now()) @map("created_at")
 
   // Relations
-  predio            Predio     @relation(fields: [predioId], references: [id])
+  admin             Usuario       @relation(fields: [adminId], references: [id])
+  plan              PlanMembresia? @relation(fields: [planId], references: [id])
 
-  @@index([predioId])
+  @@index([adminId])
   @@index([mesCorrespondiente, estado])
   @@map("pagos_abono")
 }
