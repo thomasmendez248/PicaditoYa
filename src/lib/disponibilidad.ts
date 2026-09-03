@@ -90,13 +90,11 @@ export async function getCanchasDisponibles(
   distanciaMaxKm?: number,
   capacidad?: number
 ) {
-  // Normalizar los textos de búsqueda para ignorar acentos y mayúsculas
-  const ciudadNorm = ciudad ? normalizarTexto(ciudad) : undefined;
-  const nombreNorm = nombre ? normalizarTexto(nombre) : undefined;
+  const ciudadLimpia = ciudad?.trim() || "";
+  const nombreLimpio = nombre?.trim() || "";
 
-  // Si se proveyó horario y fecha, filtramos los turnos ocupados
+  // 1. Si se proveyó horario y fecha, buscamos turnos ocupados
   let canchasOcupadasIds: string[] = [];
-
   if (fecha && horaInicio && horaFin) {
     const turnosOcupados = await prisma.turno.findMany({
       where: {
@@ -110,69 +108,136 @@ export async function getCanchasDisponibles(
     canchasOcupadasIds = turnosOcupados.map((t) => t.canchaId);
   }
 
-  // Si tenemos coordenadas del usuario, primero filtramos los predios cercanos
-  // usando la fórmula de Haversine directamente en SQL para eficiencia.
-  let prediosCercanosIds: string[] | undefined;
+  // 2. Filtros avanzados concurrentes (cercanía geoespacial, ciudad sin acentos, nombre sin acentos)
+  const [prediosCercanosIds, prediosPorCiudadIds, canchasPorNombreIds] = await Promise.all([
+    // A. Cercanía con Bounding Box + Haversine
+    (async (): Promise<string[] | undefined> => {
+      if (latUsuario !== undefined && lngUsuario !== undefined && distanciaMaxKm) {
+        const deltaLat = distanciaMaxKm / 111;
+        const latRad = (latUsuario * Math.PI) / 180;
+        const deltaLng = distanciaMaxKm / (111 * Math.max(0.01, Math.cos(latRad)));
 
-  if (latUsuario !== undefined && lngUsuario !== undefined && distanciaMaxKm) {
-    const prediosCercanos = await prisma.$queryRaw<{ id: string; distancia_km: number }[]>`
-      SELECT id,
-        ( 6371 * acos(
-            cos(radians(${latUsuario})) * cos(radians(latitud))
-            * cos(radians(longitud) - radians(${lngUsuario}))
-            + sin(radians(${latUsuario})) * sin(radians(latitud))
-        )) AS distancia_km
-      FROM predios
-      WHERE estado = 'activo'
-      HAVING ( 6371 * acos(
-            cos(radians(${latUsuario})) * cos(radians(latitud))
-            * cos(radians(longitud) - radians(${lngUsuario}))
-            + sin(radians(${latUsuario})) * sin(radians(latitud))
-        )) <= ${distanciaMaxKm}
-      ORDER BY distancia_km ASC
-    `;
-    prediosCercanosIds = prediosCercanos.map((p) => p.id);
+        const minLat = latUsuario - deltaLat;
+        const maxLat = latUsuario + deltaLat;
+        const minLng = lngUsuario - deltaLng;
+        const maxLng = lngUsuario + deltaLng;
 
-    // Si no hay predios en el radio, devolvemos vacío
-    if (prediosCercanosIds.length === 0) return [];
+        const prediosCercanos = await prisma.$queryRaw<{ id: string; distancia_km: number }[]>`
+          SELECT id, distancia_km
+          FROM (
+            SELECT id,
+              ( 6371 * acos(
+                  LEAST(1.0, GREATEST(-1.0,
+                    cos(radians(${latUsuario})) * cos(radians(latitud))
+                    * cos(radians(longitud) - radians(${lngUsuario}))
+                    + sin(radians(${latUsuario})) * sin(radians(latitud))
+                  ))
+              )) AS distancia_km
+            FROM predios
+            WHERE estado = 'activo'
+              AND latitud BETWEEN ${minLat} AND ${maxLat}
+              AND longitud BETWEEN ${minLng} AND ${maxLng}
+          ) AS candidatos
+          WHERE distancia_km <= ${distanciaMaxKm}
+          ORDER BY distancia_km ASC
+        `;
+        return prediosCercanos.map((p) => p.id);
+      }
+      return undefined;
+    })(),
+
+    // B. Ciudad o dirección sin acentuación (busca tanto con acento como sin él)
+    (async (): Promise<string[] | undefined> => {
+      if (!ciudadLimpia) return undefined;
+      try {
+        const prediosMatching = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM predios
+          WHERE estado = 'activo'
+            AND unaccent(lower(direccion)) LIKE '%' || unaccent(lower(${ciudadLimpia})) || '%'
+        `;
+        return prediosMatching.map((p) => p.id);
+      } catch (err) {
+        // Fallback resiliente con normalizarTexto
+        const ciudadNorm = normalizarTexto(ciudadLimpia);
+        const predios = await prisma.predio.findMany({
+          where: { estado: "activo" },
+          select: { id: true, direccion: true },
+        });
+        return predios
+          .filter((p) => normalizarTexto(p.direccion).includes(ciudadNorm))
+          .map((p) => p.id);
+      }
+    })(),
+
+    // C. Nombre de cancha o predio sin acentuación
+    (async (): Promise<string[] | undefined> => {
+      if (!nombreLimpio) return undefined;
+      try {
+        const canchasMatching = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT c.id
+          FROM canchas c
+          JOIN predios p ON c.predio_id = p.id
+          WHERE p.estado = 'activo'
+            AND (
+              unaccent(lower(c.nombre)) LIKE '%' || unaccent(lower(${nombreLimpio})) || '%'
+              OR unaccent(lower(p.nombre)) LIKE '%' || unaccent(lower(${nombreLimpio})) || '%'
+            )
+        `;
+        return canchasMatching.map((c) => c.id);
+      } catch (err) {
+        // Fallback resiliente con normalizarTexto
+        const nombreNorm = normalizarTexto(nombreLimpio);
+        const canchas = await prisma.cancha.findMany({
+          where: { predio: { estado: "activo" } },
+          select: { id: true, nombre: true, predio: { select: { nombre: true } } },
+        });
+        return canchas
+          .filter(
+            (c) =>
+              normalizarTexto(c.nombre).includes(nombreNorm) ||
+              normalizarTexto(c.predio.nombre).includes(nombreNorm)
+          )
+          .map((c) => c.id);
+      }
+    })(),
+  ]);
+
+  // Si cualquiera de los filtros específicos no encontró resultados, retornamos vacío
+  if (
+    (prediosCercanosIds !== undefined && prediosCercanosIds.length === 0) ||
+    (prediosPorCiudadIds !== undefined && prediosPorCiudadIds.length === 0) ||
+    (canchasPorNombreIds !== undefined && canchasPorNombreIds.length === 0)
+  ) {
+    return [];
   }
 
-  // Si hay fecha, filtramos por día de la semana
+  // Intersección de predios cuando aplican cercanía y ciudad
+  let prediosIdsFinales: string[] | undefined;
+  if (prediosCercanosIds && prediosPorCiudadIds) {
+    const setCiudad = new Set(prediosPorCiudadIds);
+    prediosIdsFinales = prediosCercanosIds.filter((id) => setCiudad.has(id));
+    if (prediosIdsFinales.length === 0) return [];
+  } else if (prediosCercanosIds) {
+    prediosIdsFinales = prediosCercanosIds;
+  } else if (prediosPorCiudadIds) {
+    prediosIdsFinales = prediosPorCiudadIds;
+  }
+
+  // Día de la semana (0=Dom, 1=Lun...)
   const diaSemana = fecha ? fecha.getDay() : undefined;
 
   const canchas = await prisma.cancha.findMany({
     where: {
       ...(canchasOcupadasIds.length > 0 ? { id: { notIn: canchasOcupadasIds } } : {}),
+      ...(canchasPorNombreIds ? { id: { in: canchasPorNombreIds } } : {}),
       predio: {
         estado: "activo",
-        // Filtrar por ciudad/dirección: busca tanto con acentos como sin ellos
-        ...(ciudad
-          ? {
-              OR: [
-                { direccion: { contains: ciudad, mode: "insensitive" } },
-                { direccion: { contains: ciudadNorm!, mode: "insensitive" } },
-              ],
-            }
-          : {}),
-        // Filtrar por predios cercanos si calculamos proximidad
-        ...(prediosCercanosIds
-          ? { id: { in: prediosCercanosIds } }
-          : {}),
+        ...(prediosIdsFinales ? { id: { in: prediosIdsFinales } } : {}),
       },
       ...(diaSemana !== undefined ? { diasOperativos: { has: diaSemana } } : {}),
       ...(horaInicio ? { horarioApertura: { lte: horaInicio } } : {}),
       ...(horaFin ? { horarioCierre: { gte: horaFin } } : {}),
       ...(capacidad ? { capacidad } : {}),
-      ...(nombre
-        ? {
-            OR: [
-              { nombre: { contains: nombre, mode: "insensitive" } },
-              { nombre: { contains: nombreNorm!, mode: "insensitive" } },
-              { predio: { nombre: { contains: nombre, mode: "insensitive" } } },
-              { predio: { nombre: { contains: nombreNorm!, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
     },
     include: {
       predio: {
