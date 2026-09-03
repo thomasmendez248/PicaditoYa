@@ -67,7 +67,11 @@ export async function POST(request: NextRequest) {
     const [cancha, disponible] = await Promise.all([
       prisma.cancha.findUnique({
         where: { id: canchaId },
-        include: { predio: true },
+        include: {
+          predio: {
+            include: { admin: { select: { fechaVencimientoSuscripcion: true, activo: true } } },
+          },
+        },
       }),
       checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin),
     ]);
@@ -76,9 +80,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
     }
 
-    if (cancha.predio.estado !== "activo") {
+    const hoy = new Date();
+    const adminVencido = cancha.predio.admin?.fechaVencimientoSuscripcion
+      ? new Date(cancha.predio.admin.fechaVencimientoSuscripcion) < hoy
+      : true;
+
+    if (cancha.predio.estado !== "activo" || adminVencido || cancha.predio.admin?.activo === false) {
       return NextResponse.json(
-        { error: "El predio no está disponible para reservas" },
+        { error: "El predio no está disponible para reservas actualmente" },
         { status: 403 }
       );
     }

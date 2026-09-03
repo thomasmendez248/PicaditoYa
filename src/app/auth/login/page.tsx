@@ -273,11 +273,17 @@ export default function LoginPage() {
 
             {/* Separador + Link a registro */}
             {vista === "login" && (
-              <div className="mt-6 pt-6 border-t border-border text-center">
+              <div className="mt-6 pt-6 border-t border-border text-center space-y-2">
                 <p className="text-sm text-text-muted">
-                  ¿No tenés cuenta?{" "}
+                  ¿Querés pedir turnos y no tenés cuenta?{" "}
                   <Link href="/auth/register" className="text-brand hover:text-brand-hover font-semibold transition-colors">
-                    Registrate gratis
+                    Creá tu cuenta de jugador
+                  </Link>
+                </p>
+                <p className="text-xs text-text-muted/60">
+                  ¿Sos dueño de un complejo deportivo?{" "}
+                  <Link href="/registrar-cancha" className="text-white hover:text-brand transition-colors font-medium">
+                    Sumá tu predio a PicaditoYa
                   </Link>
                 </p>
               </div>
