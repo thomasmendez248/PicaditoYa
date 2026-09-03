@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Building2, MapPin, Phone, Loader2, Plus, Search, Crosshair, Trash2, CheckCircle2, ShieldAlert, Map as MapIcon } from "lucide-react";
+import { X, Building2, MapPin, Phone, Loader2, Plus, Search, Crosshair, Trash2, CheckCircle2, ShieldAlert, Map as MapIcon, Image as ImageIcon } from "lucide-react";
 import { useAdmin, PredioAdmin } from "./AdminContext";
 import MapaPickerPredio from "./MapaPickerPredio";
 
@@ -20,10 +20,11 @@ export default function PredioModal({
   const [nombre, setNombre] = useState("");
   const [direccion, setDireccion] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [imagenUrl, setImagenUrl] = useState("");
   const [latitud, setLatitud] = useState<number>(-31.64999);
   const [longitud, setLongitud] = useState<number>(-63.90408);
-  const [politicaCancelacionHoras, setPoliticaCancelacionHoras] = useState(24);
-  const [mostrarMapa, setMostrarMapa] = useState(true);
+  const [politicaCancelacionHoras, setPoliticaCancelacionHoras] = useState<number>(24);
+  const [mostrarMapa, setMostrarMapa] = useState(false);
 
   const [cargando, setCargando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -36,6 +37,7 @@ export default function PredioModal({
       setNombre(predio.nombre || "");
       setDireccion(predio.direccion || "");
       setTelefono(predio.telefono || "");
+      setImagenUrl(predio.imagenUrl || "");
       setLatitud(predio.latitud ?? -31.64999);
       setLongitud(predio.longitud ?? -63.90408);
       setPoliticaCancelacionHoras(predio.politicaCancelacionHoras ?? 24);
@@ -43,6 +45,7 @@ export default function PredioModal({
       setNombre("");
       setDireccion("");
       setTelefono("");
+      setImagenUrl("");
       setLatitud(-31.64999);
       setLongitud(-63.90408);
       setPoliticaCancelacionHoras(24);
@@ -139,6 +142,7 @@ export default function PredioModal({
       nombre,
       direccion,
       telefono: telefono || undefined,
+      imagenUrl: imagenUrl.trim() || null,
       latitud: Number(latitud),
       longitud: Number(longitud),
       politicaCancelacionHoras: Number(politicaCancelacionHoras),
@@ -253,6 +257,27 @@ export default function PredioModal({
               onChange={(e) => setNombre(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand text-white placeholder:text-white/40"
             />
+          </div>
+
+          {/* Foto del predio */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">Foto del Complejo (URL opcional)</label>
+            <div className="relative">
+              <ImageIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <input
+                type="url"
+                placeholder="https://images.unsplash.com/..."
+                value={imagenUrl}
+                onChange={(e) => setImagenUrl(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand text-white placeholder:text-white/40"
+              />
+            </div>
+            {imagenUrl && (
+              <div className="mt-2 relative w-full h-28 rounded-xl overflow-hidden border border-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagenUrl} alt="Vista previa del complejo" className="w-full h-full object-cover" />
+              </div>
+            )}
           </div>
 
           {/* Dirección con botón de autocompletar coordenadas */}

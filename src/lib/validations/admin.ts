@@ -37,6 +37,7 @@ export const nuevoPredioSchema = z.object({
   latitud: z.number(),
   longitud: z.number(),
   politicaCancelacionHoras: z.number().int().min(0).default(24),
+  imagenUrl: z.string().url("URL de imagen inválida").optional().or(z.literal("")).nullable(),
 });
 
 export const updatePredioSchema = nuevoPredioSchema.partial();

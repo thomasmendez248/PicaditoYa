@@ -10,6 +10,7 @@ export type PredioAdmin = {
   latitud: number;
   longitud: number;
   estado: string;
+  imagenUrl?: string | null;
   politicaCancelacionHoras?: number;
   _count?: {
     canchas: number;

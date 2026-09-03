@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   const horaFin = searchParams.get("horaFin");
   const nombre = searchParams.get("nombre") ?? undefined;
   const ciudad = searchParams.get("ciudad") ?? undefined;
+  const provincia = searchParams.get("provincia") ?? undefined;
 
   const latStr = searchParams.get("lat");
   const lngStr = searchParams.get("lng");
@@ -51,7 +52,8 @@ export async function GET(request: NextRequest) {
       latUsuario,
       lngUsuario,
       distanciaMaxKm,
-      capacidad
+      capacidad,
+      provincia
     );
 
     return NextResponse.json({ canchas });

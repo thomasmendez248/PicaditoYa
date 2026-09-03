@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 /**
  * Normaliza un texto para búsquedas: elimina acentos y pasa a minúsculas.
@@ -88,9 +89,11 @@ export async function getCanchasDisponibles(
   latUsuario?: number,
   lngUsuario?: number,
   distanciaMaxKm?: number,
-  capacidad?: number
+  capacidad?: number,
+  provincia?: string
 ) {
   const ciudadLimpia = ciudad?.trim() || "";
+  const provinciaLimpia = provincia?.trim() || "";
   const nombreLimpio = nombre?.trim() || "";
 
   // 1. Si se proveyó horario y fecha, buscamos turnos ocupados
@@ -108,8 +111,8 @@ export async function getCanchasDisponibles(
     canchasOcupadasIds = turnosOcupados.map((t) => t.canchaId);
   }
 
-  // 2. Filtros avanzados concurrentes (cercanía geoespacial, ciudad sin acentos, nombre sin acentos)
-  const [prediosCercanosIds, prediosPorCiudadIds, canchasPorNombreIds] = await Promise.all([
+  // 2. Filtros avanzados concurrentes (cercanía geoespacial, ciudad sin acentos, nombre sin acentos, provincia sin acentos)
+  const [prediosCercanosIds, prediosPorCiudadIds, canchasPorNombreIds, prediosPorProvinciaIds] = await Promise.all([
     // A. Cercanía con Bounding Box + Haversine
     (async (): Promise<string[] | undefined> => {
       if (latUsuario !== undefined && lngUsuario !== undefined && distanciaMaxKm) {
@@ -200,27 +203,52 @@ export async function getCanchasDisponibles(
           .map((c) => c.id);
       }
     })(),
+
+    // D. Provincia sin acentuación (busca en la dirección del predio)
+    (async (): Promise<string[] | undefined> => {
+      if (!provinciaLimpia) return undefined;
+      try {
+        const prediosMatching = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM predios
+          WHERE estado = 'activo'
+            AND unaccent(lower(direccion)) LIKE '%' || unaccent(lower(${provinciaLimpia})) || '%'
+        `;
+        return prediosMatching.map((p) => p.id);
+      } catch (err) {
+        const provNorm = normalizarTexto(provinciaLimpia);
+        const predios = await prisma.predio.findMany({
+          where: { estado: "activo" },
+          select: { id: true, direccion: true },
+        });
+        return predios
+          .filter((p) => normalizarTexto(p.direccion).includes(provNorm))
+          .map((p) => p.id);
+      }
+    })(),
   ]);
 
   // Si cualquiera de los filtros específicos no encontró resultados, retornamos vacío
   if (
     (prediosCercanosIds !== undefined && prediosCercanosIds.length === 0) ||
     (prediosPorCiudadIds !== undefined && prediosPorCiudadIds.length === 0) ||
+    (prediosPorProvinciaIds !== undefined && prediosPorProvinciaIds.length === 0) ||
     (canchasPorNombreIds !== undefined && canchasPorNombreIds.length === 0)
   ) {
     return [];
   }
 
-  // Intersección de predios cuando aplican cercanía y ciudad
+  // Intersección de predios cuando aplican cercanía, ciudad y/o provincia
   let prediosIdsFinales: string[] | undefined;
-  if (prediosCercanosIds && prediosPorCiudadIds) {
-    const setCiudad = new Set(prediosPorCiudadIds);
-    prediosIdsFinales = prediosCercanosIds.filter((id) => setCiudad.has(id));
+  const filtrosPredios = [prediosCercanosIds, prediosPorCiudadIds, prediosPorProvinciaIds].filter(
+    (arr): arr is string[] => arr !== undefined
+  );
+
+  if (filtrosPredios.length > 0) {
+    prediosIdsFinales = filtrosPredios.reduce((acc, curr) => {
+      const setCurr = new Set(curr);
+      return acc.filter((id) => setCurr.has(id));
+    });
     if (prediosIdsFinales.length === 0) return [];
-  } else if (prediosCercanosIds) {
-    prediosIdsFinales = prediosCercanosIds;
-  } else if (prediosPorCiudadIds) {
-    prediosIdsFinales = prediosPorCiudadIds;
   }
 
   // Día de la semana (0=Dom, 1=Lun...)
@@ -254,6 +282,20 @@ export async function getCanchasDisponibles(
     orderBy: [{ predio: { nombre: "asc" } }, { nombre: "asc" }],
   });
 
-  return canchas;
+  if (canchas.length === 0) return [];
+
+  const predioIds = Array.from(new Set(canchas.map((c) => c.predio.id)));
+  const fotosRaw = await prisma.$queryRaw<{ id: string; imagen_url: string | null }[]>`
+    SELECT id, imagen_url FROM predios WHERE id IN (${Prisma.join(predioIds)})
+  `;
+  const fotosMap = new Map(fotosRaw.map((f) => [f.id, f.imagen_url]));
+
+  return canchas.map((cancha) => ({
+    ...cancha,
+    predio: {
+      ...cancha.predio,
+      imagenUrl: fotosMap.get(cancha.predio.id) ?? null,
+    },
+  }));
 }
 

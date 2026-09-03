@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { nuevoPredioSchema } from "@/lib/validations/admin";
 
@@ -30,11 +31,25 @@ export async function GET() {
       orderBy: { nombre: "asc" },
     });
 
+    const predioIds = predios.map((p) => p.id);
+    let fotosMap = new Map<string, string | null>();
+    if (predioIds.length > 0) {
+      const fotosRaw = await prisma.$queryRaw<{ id: string; imagen_url: string | null }[]>`
+        SELECT id, imagen_url FROM predios WHERE id IN (${Prisma.join(predioIds)})
+      `;
+      fotosMap = new Map(fotosRaw.map((f) => [f.id, f.imagen_url]));
+    }
+
+    const prediosConFoto = predios.map((p) => ({
+      ...p,
+      imagenUrl: fotosMap.get(p.id) ?? null,
+    }));
+
     const maxPredios = isSuperAdmin ? 999 : (usuario?.maxPredios ?? 1);
     const puedeCrearMas = predios.length < maxPredios;
 
     return NextResponse.json({
-      predios,
+      predios: prediosConFoto,
       maxPredios,
       totalPredios: predios.length,
       puedeCrearMas,
@@ -84,15 +99,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { imagenUrl, ...predioData } = parsed.data;
+
     const predio = await prisma.predio.create({
       data: {
-        ...parsed.data,
+        ...predioData,
         adminId: session.user.id,
         estado: "activo",
       },
     });
 
-    return NextResponse.json({ predio }, { status: 201 });
+    if (imagenUrl) {
+      await prisma.$executeRaw`UPDATE predios SET imagen_url = ${imagenUrl} WHERE id = ${predio.id}`;
+    }
+
+    return NextResponse.json({ predio: { ...predio, imagenUrl: imagenUrl || null } }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/admin/predios]", error);
     return NextResponse.json({ error: "Error al crear el predio" }, { status: 500 });

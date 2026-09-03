@@ -37,6 +37,7 @@ type Predio = {
   telefono: string | null;
   latitud: number;
   longitud: number;
+  imagenUrl?: string | null;
   politicaCancelacionHoras: number;
   canchas: Cancha[];
 };
@@ -82,40 +83,54 @@ export default function PredioDetalleClient({ predio }: { predio: Predio }) {
             </Link>
           </div>
 
-          {/* ── HEADER DEL PREDIO ── */}
-          <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-8 sm:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
+          {/* ── HEADER DEL PREDIO CON FOTO ── */}
+          <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 sm:p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-stretch md:items-center justify-between gap-8">
+            <div className="flex-1 space-y-3">
               <span className="text-xs font-black uppercase tracking-widest text-brand">Complejo Deportivo</span>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-black text-white uppercase tracking-wide drop-shadow-md mt-1">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-black text-white uppercase tracking-wide drop-shadow-md">
                 {predio.nombre}
               </h1>
-              <p className="text-white/80 text-base sm:text-lg flex items-center gap-2 mt-2">
+              <p className="text-white/80 text-base sm:text-lg flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-brand shrink-0" />
                 {predio.direccion}
               </p>
               {predio.telefono && (
-                <p className="text-white/60 text-sm flex items-center gap-2 mt-1">
+                <p className="text-white/60 text-sm flex items-center gap-2">
                   <Phone className="w-4 h-4 text-white/40 shrink-0" />
                   {predio.telefono}
                 </p>
               )}
+
+              {predio.telefono && (
+                <div className="pt-2">
+                  <a
+                    href={`https://wa.me/${predio.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `Hola! Me contacto desde PicaditoYa para consultar por reservas en ${predio.nombre}.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-brand hover:bg-brand-hover text-surface font-black px-6 py-3 rounded-full inline-flex items-center gap-2 shadow-[0_0_20px_rgba(69,228,148,0.3)] transition-all hover:scale-105 text-xs uppercase tracking-wider"
+                  >
+                    <Phone className="w-4 h-4" />
+                    Contactar por WhatsApp
+                  </a>
+                </div>
+              )}
             </div>
 
-            {predio.telefono && (
-              <div className="shrink-0">
-                <a
-                  href={`https://wa.me/${predio.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(
-                    `Hola! Me contacto desde PicaditoYa para consultar por reservas en ${predio.nombre}.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-brand hover:bg-brand-hover text-surface font-black px-8 py-4 rounded-full inline-flex items-center gap-2 shadow-[0_0_20px_rgba(69,228,148,0.3)] transition-all hover:scale-105 text-sm"
-                >
-                  <Phone className="w-4 h-4" />
-                  Contactar por WhatsApp
-                </a>
+            {/* Foto destacada del Complejo */}
+            <div className="w-full md:w-80 lg:w-96 h-52 sm:h-60 rounded-2xl overflow-hidden relative border border-white/15 shrink-0 shadow-2xl bg-black/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={predio.imagenUrl || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1200&auto=format&fit=crop"}
+                alt={`Complejo ${predio.nombre}`}
+                className="w-full h-full object-cover object-center hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20 pointer-events-none" />
+              <div className="absolute bottom-3 left-3 text-[11px] font-bold text-white/90 bg-surface/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-md">
+                Instalaciones verificadas
               </div>
-            )}
+            </div>
           </div>
 
           {/* ── LISTADO DE CANCHAS DEL PREDIO ── */}

@@ -9,18 +9,28 @@ export default async function PredioPaginaPublica({
 }) {
   const { id } = await params;
 
-  const predio = await prisma.predio.findUnique({
-    where: { id },
-    include: {
-      canchas: {
-        orderBy: { nombre: "asc" },
+  const [predio, fotoRaw] = await Promise.all([
+    prisma.predio.findUnique({
+      where: { id },
+      include: {
+        canchas: {
+          orderBy: { nombre: "asc" },
+        },
       },
-    },
-  });
+    }),
+    prisma.$queryRaw<{ imagen_url: string | null }[]>`
+      SELECT imagen_url FROM predios WHERE id = ${id} LIMIT 1
+    `,
+  ]);
 
   if (!predio || predio.estado !== "activo") {
     notFound();
   }
 
-  return <PredioDetalleClient predio={predio} />;
+  const predioConFoto = {
+    ...predio,
+    imagenUrl: fotoRaw[0]?.imagen_url || null,
+  };
+
+  return <PredioDetalleClient predio={predioConFoto} />;
 }

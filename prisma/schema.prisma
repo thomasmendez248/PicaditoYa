@@ -137,6 +137,7 @@ model Predio {
   longitud                Float
   estado                  EstadoPredio @default(pendiente_pago)
   politicaCancelacionHoras Int         @default(24) @map("politica_cancelacion_horas")
+  imagenUrl               String?      @map("imagen_url")
   fechaAlta               DateTime     @default(now()) @map("fecha_alta")
   updatedAt               DateTime     @updatedAt @map("updated_at")
 
