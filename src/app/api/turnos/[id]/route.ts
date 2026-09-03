@@ -100,11 +100,12 @@ export async function PATCH(
 
     // ─── MARCAR ASISTENCIA ────────────────────────────────────────────
     if (action === "marcar_asistencia") {
-      // Solo empleados o admin del mismo predio
+      // Solo empleados asignados, el admin dueño del predio o super_admin
       const rolOk = ["empleado", "admin", "super_admin"].includes(session.user.rol);
       const predioOk =
         session.user.rol === "super_admin" ||
-        session.user.predioId === turno.cancha.predioId;
+        session.user.predioId === turno.cancha.predioId ||
+        turno.cancha.predio.adminId === session.user.id;
 
       if (!rolOk || !predioOk) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });

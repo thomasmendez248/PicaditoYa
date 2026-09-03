@@ -319,14 +319,21 @@ export default function HomePage() {
                           )}
                         </div>
 
+                        {/* Nombre del predio en grande */}
                         <h3 className="font-display font-black text-white text-2xl truncate group-hover:text-brand transition-colors uppercase tracking-wide">
-                          {cancha.nombre}
+                          {cancha.predio.nombre}
                         </h3>
                         
-                        <p className="text-sm font-bold text-white/80 truncate flex items-center gap-1.5 mt-1">
-                          <MapPin className="w-4 h-4 text-brand shrink-0" aria-hidden="true" /> {cancha.predio.nombre}
+                        {/* Nombre de la cancha en letra chica */}
+                        <p className="text-sm font-semibold text-brand/90 truncate mt-0.5">
+                          {cancha.nombre}
                         </p>
-                        <p className="text-xs text-white/50 truncate ml-5.5 mt-0.5">{cancha.predio.direccion}</p>
+                        
+                        {/* Dirección del predio */}
+                        <p className="text-xs text-white/50 truncate flex items-center gap-1.5 mt-1">
+                          <MapPin className="w-3.5 h-3.5 text-white/40 shrink-0" aria-hidden="true" />
+                          {cancha.predio.direccion}
+                        </p>
                       </div>
 
                       {/* Precio y Botón de Reserva */}

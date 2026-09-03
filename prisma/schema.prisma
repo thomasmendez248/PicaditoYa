@@ -63,6 +63,7 @@ model Account {
   user Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
   @@map("accounts")
 }
 
@@ -74,6 +75,7 @@ model Session {
 
   user Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("sessions")
 }
 
@@ -121,6 +123,8 @@ model Usuario {
   accounts        Account[]
   sessions        Session[]
 
+  @@index([predioId])
+  @@index([rol])
   @@map("usuarios")
 }
 
@@ -145,6 +149,9 @@ model Predio {
   canchas                 Cancha[]
   pagosAbono              PagoAbono[]
 
+  @@index([adminId])
+  @@index([estado])
+  @@index([latitud, longitud])
   @@map("predios")
 }
 
@@ -169,6 +176,8 @@ model Cancha {
   predio                   Predio   @relation(fields: [predioId], references: [id], onDelete: Cascade)
   turnos                   Turno[]
 
+  @@index([predioId])
+  @@index([predioId, capacidad])
   @@map("canchas")
 }
 
@@ -191,6 +200,9 @@ model Turno {
   cancha                 Cancha      @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   cliente                Usuario?    @relation("TurnosDelCliente", fields: [clienteId], references: [id])
 
+  @@index([canchaId, fecha, estado])
+  @@index([clienteId])
+  @@index([fecha, horaInicio])
   @@map("turnos")
 }
 
@@ -206,5 +218,7 @@ model PagoAbono {
   // Relations
   predio            Predio     @relation(fields: [predioId], references: [id])
 
+  @@index([predioId])
+  @@index([mesCorrespondiente, estado])
   @@map("pagos_abono")
 }
