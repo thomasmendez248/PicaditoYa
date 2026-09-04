@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -15,6 +15,7 @@ import {
   Home,
   Menu,
   X,
+  Inbox,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -24,6 +25,13 @@ const NAV_ITEMS = [
     icon: LayoutDashboard,
     exact: true,
     comingSoon: true,
+  },
+  {
+    label: "Solicitudes",
+    href: "/super-admin/solicitudes",
+    icon: Inbox,
+    exact: false,
+    comingSoon: false,
   },
   {
     label: "Gestión de Admins",
@@ -51,6 +59,18 @@ const NAV_ITEMS = [
 export default function SuperAdminSidebar() {
   const pathname = usePathname();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [pendientesCount, setPendientesCount] = useState<number>(0);
+
+  useEffect(() => {
+    fetch("/api/super-admin/solicitudes")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.stats?.pendientes !== undefined) {
+          setPendientesCount(d.stats.pendientes);
+        }
+      })
+      .catch(() => {});
+  }, [pathname]);
 
   const cerrarMenu = () => setMenuAbierto(false);
 
@@ -94,6 +114,11 @@ export default function SuperAdminSidebar() {
               >
                 <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-violet-400" : ""}`} />
                 <span className="flex-1">{item.label}</span>
+                {item.href === "/super-admin/solicitudes" && pendientesCount > 0 && (
+                  <span className="px-2 py-0.5 text-[11px] font-black rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                    {pendientesCount}
+                  </span>
+                )}
                 {item.comingSoon && (
                   <span className="text-[9px] font-black uppercase tracking-wider bg-white/10 text-white/40 px-1.5 py-0.5 rounded-full">
                     Pronto
@@ -201,6 +226,11 @@ export default function SuperAdminSidebar() {
                   >
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-violet-400" : ""}`} />
                     <span className="flex-1">{item.label}</span>
+                    {item.href === "/super-admin/solicitudes" && pendientesCount > 0 && (
+                      <span className="px-2 py-0.5 text-[11px] font-black rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                        {pendientesCount}
+                      </span>
+                    )}
                     {item.comingSoon && (
                       <span className="text-[9px] font-black uppercase tracking-wider bg-white/10 text-white/40 px-1.5 py-0.5 rounded-full">
                         Pronto

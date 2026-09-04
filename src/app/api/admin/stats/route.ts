@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     const ultimoDiaMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
 
     // Consultas en paralelo para eliminar cascada de base de datos
-    const [turnosHoy, turnosMes] = await Promise.all([
+    const [turnosHoy, turnosMes, turnosPendientes] = await Promise.all([
       prisma.turno.findMany({
         where: {
           canchaId: { in: canchaIds },
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         },
         include: {
           cancha: { select: { nombre: true } },
-          cliente: { select: { nombre: true, telefono: true } },
+          cliente: { select: { nombre: true, telefono: true, email: true } },
         },
         orderBy: { horaInicio: "asc" },
       }),
@@ -63,6 +63,18 @@ export async function GET(request: NextRequest) {
           },
           estado: { notIn: ["cancelado_a_tiempo", "cancelado_tarde"] },
         },
+      }),
+      prisma.turno.findMany({
+        where: {
+          canchaId: { in: canchaIds },
+          fecha: { gte: hoyDate },
+          estado: "pendiente",
+        },
+        include: {
+          cancha: { select: { nombre: true } },
+          cliente: { select: { nombre: true, telefono: true, email: true } },
+        },
+        orderBy: [{ fecha: "asc" }, { horaInicio: "asc" }],
       }),
     ]);
 
@@ -103,7 +115,8 @@ export async function GET(request: NextRequest) {
       ingresosHoy,
       ingresosMes,
       ocupacionHoyPorcentaje,
-      proximosTurnosHoy: turnosHoy.slice(0, 5),
+      proximosTurnosHoy: turnosHoy,
+      turnosPendientes,
     });
   } catch (error) {
     console.error("[GET /api/admin/stats]", error);

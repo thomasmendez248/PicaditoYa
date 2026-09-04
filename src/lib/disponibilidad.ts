@@ -33,38 +33,42 @@ export async function checkDisponibilidad(
   horaFin: string,
   excludeTurnoId?: string
 ): Promise<boolean> {
-  // Buscamos turnos confirmados en la misma cancha y fecha que se solapen
-  // con el rango horario pedido.
-  //
-  // Dos turnos se solapan si:
-  //   turno.horaInicio < horaFin  AND  turno.horaFin > horaInicio
-  //
-  // Usamos raw para comparar strings "HH:mm" — funciona porque el formato
-  // permite comparación lexicográfica directa.
-  const turnosSolapados = await prisma.turno.count({
+  const turnos = await prisma.turno.findMany({
     where: {
       canchaId,
       fecha: {
         equals: fecha,
       },
       estado: { in: ["confirmado", "pendiente"] as any },
-      AND: [
-        {
-          horaInicio: {
-            lt: horaFin,
-          },
-        },
-        {
-          horaFin: {
-            gt: horaInicio,
-          },
-        },
-      ],
       ...(excludeTurnoId ? { id: { not: excludeTurnoId } } : {}),
+    },
+    select: {
+      id: true,
+      horaInicio: true,
+      horaFin: true,
     },
   });
 
-  return turnosSolapados === 0;
+  const [hIni, mIni] = horaInicio.split(":").map(Number);
+  const [hFin, mFin] = horaFin.split(":").map(Number);
+  const reqInicio = hIni * 60 + mIni;
+  let reqFin = hFin * 60 + mFin;
+  if (reqFin <= reqInicio) reqFin += 24 * 60;
+
+  for (const t of turnos) {
+    const [tHIni, tMIni] = t.horaInicio.split(":").map(Number);
+    const [tHFin, tMFin] = t.horaFin.split(":").map(Number);
+    const tInicio = tHIni * 60 + tMIni;
+    let tFin = tHFin * 60 + tMFin;
+    if (tFin <= tInicio) tFin += 24 * 60;
+
+    // Dos intervalos se solapan si reqInicio < tFin AND reqFin > tInicio
+    if (reqInicio < tFin && reqFin > tInicio) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -99,16 +103,30 @@ export async function getCanchasDisponibles(
   // 1. Si se proveyó horario y fecha, buscamos turnos ocupados
   let canchasOcupadasIds: string[] = [];
   if (fecha && horaInicio && horaFin) {
-    const turnosOcupados = await prisma.turno.findMany({
+    const turnosFecha = await prisma.turno.findMany({
       where: {
         fecha: { equals: fecha },
         estado: { in: ["confirmado", "pendiente"] as any },
-        horaInicio: { lt: horaFin },
-        horaFin: { gt: horaInicio },
       },
-      select: { canchaId: true },
+      select: { canchaId: true, horaInicio: true, horaFin: true },
     });
-    canchasOcupadasIds = turnosOcupados.map((t) => t.canchaId);
+
+    const [hIni, mIni] = horaInicio.split(":").map(Number);
+    const [hFin, mFin] = horaFin.split(":").map(Number);
+    const reqIniMin = hIni * 60 + mIni;
+    let reqFinMin = hFin * 60 + mFin;
+    if (reqFinMin <= reqIniMin) reqFinMin += 24 * 60;
+
+    canchasOcupadasIds = turnosFecha
+      .filter((t) => {
+        const [tHI, tMI] = t.horaInicio.split(":").map(Number);
+        const [tHF, tMF] = t.horaFin.split(":").map(Number);
+        const tIni = tHI * 60 + tMI;
+        let tFin = tHF * 60 + tMF;
+        if (tFin <= tIni) tFin += 24 * 60;
+        return reqIniMin < tFin && reqFinMin > tIni;
+      })
+      .map((t) => t.canchaId);
   }
 
   // 2. Filtros avanzados concurrentes (cercanía geoespacial, ciudad sin acentos, nombre sin acentos, provincia sin acentos)
@@ -298,7 +316,16 @@ export async function getCanchasDisponibles(
       },
       ...(diaSemana !== undefined ? { diasOperativos: { has: diaSemana } } : {}),
       ...(horaInicio ? { horarioApertura: { lte: horaInicio } } : {}),
-      ...(horaFin ? { horarioCierre: { gte: horaFin } } : {}),
+      ...(horaFin
+        ? horaFin === "00:00"
+          ? { horarioCierre: { in: ["00:00", "23:59", "24:00"] } }
+          : {
+              OR: [
+                { horarioCierre: { gte: horaFin } },
+                { horarioCierre: { in: ["00:00", "23:59", "24:00"] } },
+              ],
+            }
+        : {}),
       ...(capacidad ? { capacidad } : {}),
     },
     include: {

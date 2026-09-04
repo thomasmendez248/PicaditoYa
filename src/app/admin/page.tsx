@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  TrendingUp,
   CircleDot,
   CalendarDays,
   DollarSign,
-  Users,
   Clock,
   ArrowRight,
   Plus,
@@ -16,9 +14,31 @@ import {
   AlertCircle,
   Percent,
   Edit3,
+  Check,
+  Ban,
+  X,
+  MessageCircle,
+  Trash2,
+  CheckCircle,
+  AlertTriangle,
+  Eye,
+  Phone,
 } from "lucide-react";
 import { useAdmin } from "@/components/admin/AdminContext";
 import PredioModal from "@/components/admin/PredioModal";
+
+export type TurnoStatsItem = {
+  id: string;
+  fecha?: string | Date;
+  horaInicio: string;
+  horaFin: string;
+  estado: string;
+  precioAlMomentoReserva: number;
+  cancha: { nombre: string };
+  cliente?: { nombre: string; telefono: string | null; email?: string | null } | null;
+  nombreClienteManual?: string | null;
+  telefonoClienteManual?: string | null;
+};
 
 type StatsData = {
   predio: {
@@ -33,16 +53,8 @@ type StatsData = {
   ingresosHoy: number;
   ingresosMes: number;
   ocupacionHoyPorcentaje: number;
-  proximosTurnosHoy: Array<{
-    id: string;
-    horaInicio: string;
-    horaFin: string;
-    estado: string;
-    precioAlMomentoReserva: number;
-    cancha: { nombre: string };
-    cliente?: { nombre: string; telefono: string | null } | null;
-    nombreClienteManual?: string | null;
-  }>;
+  proximosTurnosHoy: TurnoStatsItem[];
+  turnosPendientes?: TurnoStatsItem[];
 };
 
 export default function AdminDashboardPage() {
@@ -51,6 +63,11 @@ export default function AdminDashboardPage() {
   const [cargandoStats, setCargandoStats] = useState(false);
   const [modalPredioOpen, setModalPredioOpen] = useState(false);
   const [modalPredioEditarOpen, setModalPredioEditarOpen] = useState(false);
+
+  // Estados para filtros, acciones y detalles de turnos
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendientes" | "confirmados">("todos");
+  const [turnoDetalle, setTurnoDetalle] = useState<TurnoStatsItem | null>(null);
+  const [procesandoId, setProcesandoId] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
     if (!selectedPredioId) {
@@ -74,6 +91,57 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  // Cambiar estado de un turno (confirmar / denegar / cancelar)
+  const handleActualizarEstado = async (turnoId: string, nuevoEstado: string) => {
+    setProcesandoId(turnoId);
+    try {
+      const res = await fetch(`/api/admin/turnos/${turnoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al actualizar estado del turno");
+      }
+
+      await fetchStats();
+      if (turnoDetalle && turnoDetalle.id === turnoId) {
+        setTurnoDetalle(null);
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al procesar el turno");
+    } finally {
+      setProcesandoId(null);
+    }
+  };
+
+  // Eliminar y liberar turno
+  const handleEliminarTurno = async (turnoId: string) => {
+    if (!confirm("¿Estás seguro de que querés eliminar y liberar completamente este turno?")) return;
+    setProcesandoId(turnoId);
+    try {
+      const res = await fetch(`/api/admin/turnos/${turnoId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al eliminar turno");
+      }
+
+      await fetchStats();
+      if (turnoDetalle && turnoDetalle.id === turnoId) {
+        setTurnoDetalle(null);
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al eliminar el turno");
+    } finally {
+      setProcesandoId(null);
+    }
+  };
 
   // Si no tiene predios cargados
   if (!cargandoPredios && predios.length === 0) {
@@ -99,6 +167,17 @@ export default function AdminDashboardPage() {
       </div>
     );
   }
+
+  // Filtrar turnos de hoy según pestaña
+  const turnosHoy = stats?.proximosTurnosHoy || [];
+  const turnosFiltrados = turnosHoy.filter((t) => {
+    if (filtroEstado === "pendientes") return t.estado === "pendiente";
+    if (filtroEstado === "confirmados") return t.estado === "confirmado" || t.estado === "completado";
+    return true;
+  });
+
+  const pendientesHoyCount = turnosHoy.filter((t) => t.estado === "pendiente").length;
+  const confirmadosHoyCount = turnosHoy.filter((t) => t.estado === "confirmado" || t.estado === "completado").length;
 
   return (
     <div className="space-y-8">
@@ -136,6 +215,126 @@ export default function AdminDashboardPage() {
           onClose={() => setModalPredioEditarOpen(false)}
           predio={selectedPredio}
         />
+      )}
+
+      {/* ── ALERTA DE TURNOS PENDIENTES DE CONFIRMACIÓN ── */}
+      {stats?.turnosPendientes && stats.turnosPendientes.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-[#0f1712] to-amber-500/10 border border-amber-500/40 p-6 sm:p-7 rounded-[2rem] shadow-[0_0_30px_rgba(245,158,11,0.15)] animate-fade-in space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                <AlertTriangle className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-display font-black text-white uppercase tracking-wide flex items-center gap-2">
+                  Solicitudes Pendientes de Confirmación ({stats.turnosPendientes.length})
+                </h2>
+                <p className="text-xs text-amber-200/80 mt-0.5">
+                  Los clientes solicitaron estos turnos y esperan tu confirmación. Aceptalos o denegalos directamente aquí:
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/turnos"
+              className="text-xs font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 self-start sm:self-auto shrink-0 transition-colors"
+            >
+              Ir al turnero visual <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
+            {stats.turnosPendientes.map((t) => {
+              const clienteNombre = t.nombreClienteManual || t.cliente?.nombre || "Cliente sin nombre";
+              const telefono = t.telefonoClienteManual || t.cliente?.telefono;
+              const isProcesando = procesandoId === t.id;
+              const fechaStr = t.fecha ? new Date(t.fecha).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) : "Hoy";
+
+              return (
+                <div
+                  key={t.id}
+                  className="bg-[#0f1712]/90 border border-amber-500/30 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-lg hover:border-amber-400/60 transition-all"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-black text-white px-2.5 py-1 rounded-xl bg-surface border border-white/10">
+                        {t.horaInicio} - {t.horaFin}
+                      </span>
+                      <span className="text-[11px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        {fechaStr}
+                      </span>
+                    </div>
+
+                    <div className="pt-1">
+                      <p className="text-sm font-bold text-white truncate">{clienteNombre}</p>
+                      <p className="text-xs text-white/60">{t.cancha.nombre}</p>
+                    </div>
+
+                    {telefono && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-[11px] text-white/50 flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-white/40" />
+                          {telefono}
+                        </span>
+                        <a
+                          href={`https://wa.me/${telefono.replace(/\D/g, "")}?text=${encodeURIComponent(
+                            `Hola ${clienteNombre}! Te escribimos respecto a tu solicitud de turno para ${t.cancha.nombre} (${t.horaInicio} a ${t.horaFin}).`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                          title="Enviar mensaje de WhatsApp"
+                        >
+                          <MessageCircle className="w-2.5 h-2.5" />
+                          WhatsApp
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-xs text-brand">
+                      ${t.precioAlMomentoReserva.toLocaleString("es-AR")}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleActualizarEstado(t.id, "confirmado")}
+                        disabled={isProcesando}
+                        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-surface font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.3)] transition-all hover:scale-105"
+                        title="Aceptar y confirmar este turno"
+                      >
+                        {isProcesando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Aceptar
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`¿Denegar el turno solicitado por ${clienteNombre}?`)) {
+                            handleActualizarEstado(t.id, "cancelado_tarde");
+                          }
+                        }}
+                        disabled={isProcesando}
+                        className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-bold text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1 transition-all"
+                        title="Denegar solicitud"
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                        Denegar
+                      </button>
+
+                      <button
+                        onClick={() => setTurnoDetalle(t)}
+                        className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors"
+                        title="Ver detalles completos"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* ── KPIs / ESTADÍSTICAS ── */}
@@ -222,53 +421,167 @@ export default function AdminDashboardPage() {
 
       {/* ── CRONOGRAMA DE HOY A ANCHO COMPLETO ── */}
       <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2rem] shadow-2xl space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <Clock className="w-5 h-5 text-brand" />
             <h2 className="text-2xl font-display font-black text-white uppercase tracking-wide">Turnos Programados para Hoy</h2>
           </div>
-          <Link
-            href="/admin/turnos"
-            className="text-xs font-bold text-brand hover:text-brand-hover flex items-center gap-1 transition-colors group"
-          >
-            Ver grilla completa <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </Link>
+
+          <div className="flex items-center gap-3">
+            {/* Filtro de Pestañas */}
+            <div className="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs">
+              <button
+                onClick={() => setFiltroEstado("todos")}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                  filtroEstado === "todos"
+                    ? "bg-brand text-surface shadow-sm"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                Todos ({turnosHoy.length})
+              </button>
+              <button
+                onClick={() => setFiltroEstado("pendientes")}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                  filtroEstado === "pendientes"
+                    ? "bg-amber-400 text-surface shadow-sm"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                Pendientes ({pendientesHoyCount})
+              </button>
+              <button
+                onClick={() => setFiltroEstado("confirmados")}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                  filtroEstado === "confirmados"
+                    ? "bg-emerald-400 text-surface shadow-sm"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                Confirmados ({confirmadosHoyCount})
+              </button>
+            </div>
+
+            <Link
+              href="/admin/turnos"
+              className="text-xs font-bold text-brand hover:text-brand-hover flex items-center gap-1 transition-colors group hidden md:flex shrink-0"
+            >
+              Ver grilla completa <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
         </div>
 
-        {stats?.proximosTurnosHoy && stats.proximosTurnosHoy.length > 0 ? (
+        {turnosFiltrados.length > 0 ? (
           <div className="space-y-3">
-            {stats.proximosTurnosHoy.map((t) => {
+            {turnosFiltrados.map((t) => {
               const cliente = t.nombreClienteManual || t.cliente?.nombre || "Cliente sin nombre";
+              const telefono = t.telefonoClienteManual || t.cliente?.telefono;
               const isPendiente = t.estado === "pendiente";
+              const isConfirmado = t.estado === "confirmado" || t.estado === "completado";
+              const isProcesando = procesandoId === t.id;
 
               return (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 transition-colors"
+                  className="flex flex-col lg:flex-row lg:items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 transition-colors gap-4"
                 >
+                  {/* Info horario, cliente y cancha */}
                   <div className="flex items-center gap-3.5">
-                    <div className="font-mono text-sm font-bold text-white px-3 py-1.5 rounded-xl bg-surface border border-white/10 shadow-inner">
+                    <div className="font-mono text-sm font-bold text-white px-3 py-2 rounded-xl bg-surface border border-white/10 shadow-inner shrink-0">
                       {t.horaInicio} - {t.horaFin}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white">{cliente}</p>
-                      <p className="text-xs text-white/50">{t.cancha.nombre}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-white">{cliente}</p>
+                        {telefono && (
+                          <a
+                            href={`https://wa.me/${telefono.replace(/\D/g, "")}?text=${encodeURIComponent(
+                              `Hola ${cliente}! Te escribimos de ${t.cancha.nombre} respecto a tu reserva de hoy (${t.horaInicio} - ${t.horaFin}).`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-400 hover:text-emerald-300 hover:scale-110 transition-transform"
+                            title={`WhatsApp: ${telefono}`}
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
+                      <p className="text-xs text-white/50">{t.cancha.nombre} {telefono ? `• Tel: ${telefono}` : ""}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-sm text-brand">
-                      ${t.precioAlMomentoReserva.toLocaleString("es-AR")}
-                    </span>
-                    <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${
-                        isPendiente
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                          : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                      }`}
-                    >
-                      {t.estado}
-                    </span>
+                  {/* Estado, precio y botones de acción */}
+                  <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3 pt-2 lg:pt-0 border-t border-white/5 lg:border-t-0">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-sm text-brand">
+                        ${t.precioAlMomentoReserva.toLocaleString("es-AR")}
+                      </span>
+                      <span
+                        className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${
+                          isPendiente
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                            : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                        }`}
+                      >
+                        {t.estado}
+                      </span>
+                    </div>
+
+                    {/* Botones de acción directos */}
+                    <div className="flex items-center gap-2">
+                      {isPendiente ? (
+                        <>
+                          <button
+                            onClick={() => handleActualizarEstado(t.id, "confirmado")}
+                            disabled={isProcesando}
+                            className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-surface font-black text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.3)] transition-all hover:scale-105"
+                            title="Aceptar y confirmar turno"
+                          >
+                            {isProcesando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                            Aceptar
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              if (confirm(`¿Denegar el turno de ${cliente}?`)) {
+                                handleActualizarEstado(t.id, "cancelado_tarde");
+                              }
+                            }}
+                            disabled={isProcesando}
+                            className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all"
+                            title="Denegar turno"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                            Denegar
+                          </button>
+                        </>
+                      ) : isConfirmado ? (
+                        <button
+                          onClick={() => {
+                            if (confirm(`¿Estás seguro de que querés cancelar el turno confirmado de ${cliente}?`)) {
+                              handleActualizarEstado(t.id, "cancelado_tarde");
+                            }
+                          }}
+                          disabled={isProcesando}
+                          className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all"
+                          title="Cancelar turno confirmado"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                          Cancelar Turno
+                        </button>
+                      ) : null}
+
+                      {/* Botón Ver Detalles */}
+                      <button
+                        onClick={() => setTurnoDetalle(t)}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs font-bold flex items-center gap-1 transition-colors"
+                        title="Ver detalles completos del turno"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Detalles
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -279,7 +592,11 @@ export default function AdminDashboardPage() {
             <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
               <CalendarDays className="w-7 h-7 text-white/40" />
             </div>
-            <p className="text-sm font-medium">No hay turnos registrados para hoy.</p>
+            <p className="text-sm font-medium">
+              {filtroEstado === "todos"
+                ? "No hay turnos registrados para hoy."
+                : `No hay turnos con estado "${filtroEstado}" para hoy.`}
+            </p>
             <Link
               href="/admin/turnos"
               className="mt-3 text-xs font-bold text-brand hover:underline"
@@ -289,6 +606,167 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* ── MODAL: DETALLE COMPLETO DEL TURNO ── */}
+      {turnoDetalle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#0f1712]/95 backdrop-blur-2xl border border-white/15 rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                    turnoDetalle.estado === "pendiente"
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                      : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                  }`}
+                >
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Detalle del Turno</h2>
+                  <p className="text-xs text-white/60">
+                    {turnoDetalle.cancha.nombre} • {turnoDetalle.horaInicio} a {turnoDetalle.horaFin}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTurnoDetalle(null)}
+                className="text-white/50 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Información del cliente */}
+              <div className="p-5 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/50">Cliente:</span>
+                  <span className="text-sm font-bold text-white">
+                    {turnoDetalle.nombreClienteManual || turnoDetalle.cliente?.nombre || "Sin especificar"}
+                  </span>
+                </div>
+
+                {(turnoDetalle.telefonoClienteManual || turnoDetalle.cliente?.telefono) && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/50">Teléfono:</span>
+                    <a
+                      href={`tel:${turnoDetalle.telefonoClienteManual || turnoDetalle.cliente?.telefono}`}
+                      className="text-xs font-bold text-brand hover:underline"
+                    >
+                      {turnoDetalle.telefonoClienteManual || turnoDetalle.cliente?.telefono}
+                    </a>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/50">Monto:</span>
+                  <span className="text-sm font-bold text-brand font-mono">
+                    ${turnoDetalle.precioAlMomentoReserva.toLocaleString("es-AR")}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/50">Estado actual:</span>
+                  <span
+                    className={`text-xs font-bold px-3 py-0.5 rounded-full capitalize ${
+                      turnoDetalle.estado === "pendiente"
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                        : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                    }`}
+                  >
+                    {turnoDetalle.estado}
+                  </span>
+                </div>
+
+                {/* Botón WhatsApp si tiene teléfono */}
+                {(turnoDetalle.telefonoClienteManual || turnoDetalle.cliente?.telefono) && (
+                  <div className="pt-2 border-t border-white/5">
+                    <a
+                      href={`https://wa.me/${(turnoDetalle.telefonoClienteManual || turnoDetalle.cliente?.telefono || "").replace(/\D/g, "")}?text=${encodeURIComponent(
+                        `Hola ${turnoDetalle.nombreClienteManual || turnoDetalle.cliente?.nombre || ""}! Te escribimos de ${turnoDetalle.cancha.nombre} respecto a tu reserva de turno (${turnoDetalle.horaInicio} a ${turnoDetalle.horaFin}).`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Enviar WhatsApp al cliente
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de acción principales (Aceptar / Denegar / Cancelar) */}
+              {turnoDetalle.estado === "pendiente" ? (
+                <div className="space-y-2">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-amber-300">
+                    Solicitud Pendiente de Confirmación:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      onClick={() => handleActualizarEstado(turnoDetalle.id, "confirmado")}
+                      disabled={!!procesandoId}
+                      className="py-3 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-surface font-black text-xs flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all hover:scale-105"
+                    >
+                      <Check className="w-4 h-4" />
+                      Aceptar Turno
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("¿Denegar esta solicitud de turno?")) {
+                          handleActualizarEstado(turnoDetalle.id, "cancelado_tarde");
+                        }
+                      }}
+                      disabled={!!procesandoId}
+                      className="py-3 px-4 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-black text-xs flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Ban className="w-4 h-4" />
+                      Denegar Turno
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      if (confirm("¿Estás seguro de que deseas cancelar este turno confirmado?")) {
+                        handleActualizarEstado(turnoDetalle.id, "cancelado_tarde");
+                      }
+                    }}
+                    disabled={!!procesandoId}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 font-black text-xs flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Cancelar Turno
+                  </button>
+                </div>
+              )}
+
+              {/* Botón para liberar / eliminar turno */}
+              <div className="pt-4 border-t border-white/10 flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => handleEliminarTurno(turnoDetalle.id)}
+                  disabled={!!procesandoId}
+                  className="text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-4 py-2 rounded-full transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Liberar y Borrar Turno
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTurnoDetalle(null)}
+                  className="px-6 py-2 rounded-full border border-white/10 text-xs font-bold text-white/70 hover:text-white transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

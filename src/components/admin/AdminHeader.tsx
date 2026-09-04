@@ -16,6 +16,7 @@ import {
   Sparkles,
   ExternalLink,
   Edit2,
+  User,
 } from "lucide-react";
 import { useAdmin, PredioAdmin } from "./AdminContext";
 import PredioModal from "./PredioModal";
@@ -157,6 +158,15 @@ export default function AdminHeader() {
 
             {/* Acciones derecha */}
             <div className="flex items-center gap-3">
+              <Link
+                href="/admin/perfil"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/5 hover:bg-white/10 hover:border-brand/40 border border-white/10 text-xs font-bold text-white/80 hover:text-white transition-all"
+                title="Editar mis datos personales"
+              >
+                <User className="w-3.5 h-3.5 text-brand" />
+                <span className="hidden sm:inline">Mi Perfil</span>
+              </Link>
+
               <Link
                 href="/"
                 target="_blank"

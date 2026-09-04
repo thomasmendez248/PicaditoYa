@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { X, LayoutDashboard, CircleDot, CalendarDays, LogOut } from "lucide-react";
+import { X, LayoutDashboard, CircleDot, CalendarDays, LogOut, User } from "lucide-react";
 
 export default function RadialNavMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -41,7 +41,7 @@ export default function RadialNavMenu() {
       href: "/admin",
       icon: LayoutDashboard,
       delay: "0ms",
-      mobile: { x: -96, y: -63 },
+      mobile: { x: -100, y: -50 },
       desktop: { x: 76, y: -93 },
     },
     {
@@ -50,9 +50,9 @@ export default function RadialNavMenu() {
       sublabel: "Gestión",
       href: "/admin/canchas",
       icon: CircleDot,
-      delay: "40ms",
-      mobile: { x: -37, y: -109 },
-      desktop: { x: 115, y: -35 },
+      delay: "30ms",
+      mobile: { x: -55, y: -95 },
+      desktop: { x: 115, y: -45 },
     },
     {
       id: "turnos",
@@ -60,9 +60,19 @@ export default function RadialNavMenu() {
       sublabel: "Agenda",
       href: "/admin/turnos",
       icon: CalendarDays,
-      delay: "80ms",
-      mobile: { x: 37, y: -109 },
-      desktop: { x: 115, y: 35 },
+      delay: "60ms",
+      mobile: { x: 0, y: -110 },
+      desktop: { x: 125, y: 10 },
+    },
+    {
+      id: "perfil",
+      label: "Mi Perfil",
+      sublabel: "Mis Datos",
+      href: "/admin/perfil",
+      icon: User,
+      delay: "90ms",
+      mobile: { x: 55, y: -95 },
+      desktop: { x: 105, y: 65 },
     },
     {
       id: "logout",
@@ -72,8 +82,8 @@ export default function RadialNavMenu() {
       isLogout: true,
       icon: LogOut,
       delay: "120ms",
-      mobile: { x: 96, y: -63 },
-      desktop: { x: 76, y: 93 },
+      mobile: { x: 100, y: -50 },
+      desktop: { x: 65, y: 110 },
     },
   ];
 

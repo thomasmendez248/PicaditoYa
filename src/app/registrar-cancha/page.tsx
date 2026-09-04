@@ -7,6 +7,7 @@ import Navbar from "@/components/layout/Navbar";
 export default function RegistrarCanchaPage() {
   const [enviado, setEnviado] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     predio: "",
     encargado: "",
@@ -14,14 +15,34 @@ export default function RegistrarCanchaPage() {
     email: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCargando(true);
-    // Simulamos un retraso de red
-    setTimeout(() => {
-      setCargando(false);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/solicitudes-registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo enviar la solicitud. Intenta nuevamente.");
+      }
+
       setEnviado(true);
-    }, 1500);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Ocurrió un error inesperado.");
+      }
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -111,8 +132,15 @@ export default function RegistrarCanchaPage() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-5 animate-fade-in">
                 <div>
                   <h2 className="text-2xl font-bold text-white mb-1">Sumate a la plataforma</h2>
-                  <p className="text-sm text-white/50 mb-6">Dejanos los datos y nos ponemos en contacto.</p>
+                  <p className="text-sm text-white/50 mb-4">Dejanos los datos y nos ponemos en contacto.</p>
                 </div>
+
+                {error && (
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm flex items-center gap-2.5 animate-fade-in">
+                    <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="predio" className="text-sm font-semibold text-white/80">Nombre del Predio</label>
