@@ -32,7 +32,7 @@ export const updateTurnoEstadoSchema = z.object({
 
 export const nuevoPredioSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  telefono: z.string().optional(),
+  telefono: z.string().min(6, "El número de teléfono es obligatorio (mínimo 6 dígitos)"),
   direccion: z.string().min(5, "Dirección requerida"),
   latitud: z.number(),
   longitud: z.number(),

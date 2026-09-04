@@ -18,15 +18,25 @@ import {
   ArrowRight, 
   RefreshCw, 
   AlertTriangle,
-  ChevronRight
+  ChevronRight,
+  MessageCircle,
 } from "lucide-react";
 import { format, parseISO, isPast } from "date-fns";
 import { es } from "date-fns/locale";
+
+function limpiarTelefono(tel: string | null | undefined): string {
+  if (!tel) return "5493515138542";
+  const nums = tel.replace(/\D/g, "");
+  if (nums.startsWith("549") || nums.startsWith("54")) return nums;
+  if (nums.startsWith("15")) return `549${nums.slice(2)}`;
+  return `549${nums}`;
+}
 
 type TurnoCliente = {
   id: string;
   canchaId: string;
   clienteId: string;
+  nombreClienteManual?: string | null;
   fecha: string;
   horaInicio: string;
   horaFin: string;
@@ -425,7 +435,29 @@ export default function ClienteMisTurnosPage() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Botón WhatsApp al Predio con los datos del turno */}
+                        {turno.cancha.predio.telefono && (
+                          <a
+                            href={`https://wa.me/${limpiarTelefono(turno.cancha.predio.telefono)}?text=${encodeURIComponent(
+                              `¡Hola! Tengo una reserva en *${turno.cancha.predio.nombre}*:\n\n` +
+                              `⚽ *Cancha:* ${turno.cancha.nombre}\n` +
+                              `📅 *Fecha:* ${fechaLegible}\n` +
+                              `⏰ *Horario:* ${turno.horaInicio} a ${turno.horaFin} hs\n` +
+                              `👤 *Titular:* ${turno.nombreClienteManual || session?.user?.name || "Jugador"}\n` +
+                              `💰 *Monto:* $${turno.precioAlMomentoReserva.toLocaleString("es-AR")}\n\n` +
+                              `Te escribo para coordinar los detalles de mi turno. ¡Muchas gracias!`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-2 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/30 text-xs font-bold text-[#25D366] hover:text-[#42f085] transition-all flex items-center gap-1.5 shadow-sm"
+                            title="Enviar mensaje por WhatsApp a la cancha"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
+
                         <Link
                           href={`/predio/${turno.cancha.predio.id}`}
                           className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white transition-colors flex items-center gap-1"

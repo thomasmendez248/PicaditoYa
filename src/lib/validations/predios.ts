@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const predioSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
-  telefono: z.string().optional(),
+  telefono: z.string().min(6, "El número de teléfono es obligatorio (mínimo 6 dígitos)"),
   direccion: z.string().min(5, "La dirección es requerida"),
   latitud: z.number().min(-90).max(90),
   longitud: z.number().min(-180).max(180),

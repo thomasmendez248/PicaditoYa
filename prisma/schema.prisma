@@ -42,6 +42,12 @@ enum EstadoPago {
   pendiente
 }
 
+enum EstadoSolicitud {
+  pendiente
+  aprobada
+  rechazada
+}
+
 // ─────────────────────────────────────────────
 // NEXTAUTH MODELS
 // ─────────────────────────────────────────────
@@ -145,6 +151,7 @@ model Usuario {
   accounts        Account[]
   sessions        Session[]
   pagosAbono      PagoAbono[]
+  solicitudesAprobadas SolicitudRegistro[] @relation("SolicitudAdmin")
 
   @@index([predioId])
   @@index([rol])
@@ -249,4 +256,23 @@ model PagoAbono {
   @@index([adminId])
   @@index([mesCorrespondiente, estado])
   @@map("pagos_abono")
+}
+
+model SolicitudRegistro {
+  id              String          @id @default(cuid())
+  nombrePredio    String          @map("nombre_predio")
+  nombreContacto  String          @map("nombre_contacto")
+  telefono        String
+  email           String
+  estado          EstadoSolicitud @default(pendiente)
+  motivoRechazo   String?         @map("motivo_rechazo")
+  adminCreadoId   String?         @map("admin_creado_id")
+  adminCreado     Usuario?        @relation("SolicitudAdmin", fields: [adminCreadoId], references: [id], onDelete: SetNull)
+  fechaResolucion DateTime?       @map("fecha_resolucion")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  @@index([estado])
+  @@index([email])
+  @@map("solicitudes_registro")
 }

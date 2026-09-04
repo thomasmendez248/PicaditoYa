@@ -15,6 +15,9 @@ import {
   Loader2,
   AlertCircle,
   Info,
+  Check,
+  Ban,
+  MessageCircle,
 } from "lucide-react";
 
 export type TurnoItem = {
@@ -106,10 +109,13 @@ export default function TurneroVisual({
     const [cierreH, cierreM] = (cancha.horarioCierre || "23:00").split(":").map(Number);
 
     let currentMin = aperturaH * 60 + aperturaM;
-    const endMin = cierreH * 60 + cierreM;
+    let endMin = cierreH * 60 + cierreM;
+    if (endMin <= currentMin || endMin === 0 || (cierreH === 23 && cierreM === 0) || cancha.horarioCierre === "00:00") {
+      endMin = 24 * 60; // Permite turnos hasta las 00:00 (medianoche)
+    }
 
     while (currentMin + duracionCancha <= endMin) {
-      const h = Math.floor(currentMin / 60);
+      const h = Math.floor(currentMin / 60) % 24;
       const m = currentMin % 60;
       const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       slots.push(timeStr);
@@ -123,9 +129,21 @@ export default function TurneroVisual({
 
   // Encontrar turno para un slot específico
   const getTurnoForSlot = (slotTime: string) => {
+    const [hS, mS] = slotTime.split(":").map(Number);
+    const slotMin = hS * 60 + mS;
+    const slotFinMin = slotMin + duracionCancha;
+
     return turnos.find((t) => {
-      // Un slot "HH:mm" está ocupado si horaInicio <= slotTime y slotTime < horaFin
-      return t.horaInicio <= slotTime && slotTime < t.horaFin;
+      const [hI, mI] = t.horaInicio.split(":").map(Number);
+      const [hF, mF] = t.horaFin.split(":").map(Number);
+      const tIni = hI * 60 + mI;
+      let tFin = hF * 60 + mF;
+      // Si termina a medianoche (00:00) o cruza de día
+      if (tFin <= tIni) {
+        tFin += 24 * 60;
+      }
+      // Hay solapamiento si slotMin < tFin y slotFinMin > tIni
+      return slotMin < tFin && slotFinMin > tIni;
     });
   };
 
@@ -147,7 +165,7 @@ export default function TurneroVisual({
     // Calcular hora de fin sumando la duración configurada de la cancha
     const [h, m] = slotTime.split(":").map(Number);
     const finTotalMin = h * 60 + m + duracionCancha;
-    const finH = Math.floor(finTotalMin / 60);
+    const finH = Math.floor(finTotalMin / 60) % 24;
     const finM = finTotalMin % 60;
     const finStr = `${String(finH).padStart(2, "0")}:${String(finM).padStart(2, "0")}`;
 
@@ -336,7 +354,7 @@ export default function TurneroVisual({
 
               const [h, m] = slotTime.split(":").map(Number);
               const finTotal = h * 60 + m + duracionCancha;
-              const slotFin = `${String(Math.floor(finTotal / 60)).padStart(2, "0")}:${String(finTotal % 60).padStart(2, "0")}`;
+              const slotFin = `${String(Math.floor(finTotal / 60) % 24).padStart(2, "0")}:${String(finTotal % 60).padStart(2, "0")}`;
               const precioSlot = Math.round((cancha.precioTurno * duracionCancha) / 60);
 
               return (
@@ -686,32 +704,75 @@ export default function TurneroVisual({
                     {turnoSeleccionado.estado}
                   </span>
                 </div>
+
+                {/* Botón WhatsApp si tiene teléfono */}
+                {(turnoSeleccionado.telefonoClienteManual || turnoSeleccionado.cliente?.telefono) && (
+                  <div className="pt-2 border-t border-white/5">
+                    <a
+                      href={`https://wa.me/${(turnoSeleccionado.telefonoClienteManual || turnoSeleccionado.cliente?.telefono || "").replace(/\D/g, "")}?text=${encodeURIComponent(
+                        `Hola ${turnoSeleccionado.nombreClienteManual || turnoSeleccionado.cliente?.nombre || ""}! Te escribimos de ${cancha.nombre} respecto a tu reserva para el día ${fecha} en el horario de ${turnoSeleccionado.horaInicio} a ${turnoSeleccionado.horaFin}.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Enviar WhatsApp al cliente
+                    </a>
+                  </div>
+                )}
               </div>
 
-              {/* Acciones de cambio de estado */}
-              <div className="space-y-2.5 pt-1">
-                <label className="block text-xs font-bold uppercase tracking-wider text-white/60">Cambiar Estado:</label>
-                <div className="grid grid-cols-2 gap-2.5">
+              {/* Botones de acción principales (Aceptar / Denegar / Cancelar) */}
+              {turnoSeleccionado.estado === "pendiente" ? (
+                <div className="space-y-2">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-amber-300">
+                    Solicitud Pendiente de Confirmación:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      onClick={() => handleCambiarEstado("confirmado")}
+                      disabled={guardando}
+                      className="py-3 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-surface font-black text-xs flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all hover:scale-105"
+                    >
+                      <Check className="w-4 h-4" />
+                      Aceptar Turno
+                    </button>
+                    <button
+                      onClick={() => handleCambiarEstado("cancelado_tarde")}
+                      disabled={guardando}
+                      className="py-3 px-4 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-black text-xs flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Ban className="w-4 h-4" />
+                      Denegar Turno
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
                   <button
-                    onClick={() => handleCambiarEstado("confirmado")}
-                    disabled={guardando || turnoSeleccionado.estado === "confirmado"}
-                    className="py-3 px-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-black text-xs transition-colors disabled:opacity-40"
+                    onClick={() => {
+                      if (confirm("¿Estás seguro de que deseas cancelar este turno confirmado?")) {
+                        handleCambiarEstado("cancelado_tarde");
+                      }
+                    }}
+                    disabled={guardando}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 font-black text-xs flex items-center justify-center gap-2 transition-all"
                   >
-                    Confirmado (Verde)
+                    <Ban className="w-4 h-4" />
+                    Cancelar Turno
                   </button>
+                </div>
+              )}
 
-                  <button
-                    onClick={() => handleCambiarEstado("pendiente")}
-                    disabled={guardando || turnoSeleccionado.estado === "pendiente"}
-                    className="py-3 px-3 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs transition-colors disabled:opacity-40"
-                  >
-                    Pendiente (Naranja)
-                  </button>
-
+              {/* Acciones secundarias de cambio de estado */}
+              <div className="space-y-2 pt-1 border-t border-white/10">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-white/50">Otros Estados:</label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleCambiarEstado("completado")}
                     disabled={guardando}
-                    className="py-3 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-colors"
+                    className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-colors"
                   >
                     Completado
                   </button>
@@ -719,7 +780,7 @@ export default function TurneroVisual({
                   <button
                     onClick={() => handleCambiarEstado("no_show")}
                     disabled={guardando}
-                    className="py-3 px-3 rounded-2xl bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-red-400 text-xs font-bold transition-colors"
+                    className="py-2 px-3 rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-red-400 text-xs font-bold transition-colors"
                   >
                     No-Show (Faltó)
                   </button>

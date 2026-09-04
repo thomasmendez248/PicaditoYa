@@ -135,13 +135,18 @@ export default function PredioModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!telefono || telefono.trim().length < 6) {
+      setError("El teléfono de contacto de la cancha / predio es obligatorio (mínimo 6 dígitos).");
+      return;
+    }
+
     setCargando(true);
     setError(null);
 
     const payload = {
       nombre,
       direccion,
-      telefono: telefono || undefined,
+      telefono: telefono.trim(),
       imagenUrl: imagenUrl.trim() || null,
       latitud: Number(latitud),
       longitud: Number(longitud),
@@ -373,11 +378,14 @@ export default function PredioModal({
           {/* Teléfono y Cancelación */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">Teléfono</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1.5">
+                Teléfono de la Cancha / WhatsApp * <span className="text-brand font-black">(Obligatorio)</span>
+              </label>
               <div className="relative">
                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                 <input
-                  type="text"
+                  type="tel"
+                  required
                   placeholder="Ej: 3584123456"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
