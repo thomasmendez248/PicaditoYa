@@ -128,18 +128,22 @@ export async function getCanchasDisponibles(
         const prediosCercanos = await prisma.$queryRaw<{ id: string; distancia_km: number }[]>`
           SELECT id, distancia_km
           FROM (
-            SELECT id,
+            SELECT p.id,
               ( 6371 * acos(
                   LEAST(1.0, GREATEST(-1.0,
-                    cos(radians(${latUsuario})) * cos(radians(latitud))
-                    * cos(radians(longitud) - radians(${lngUsuario}))
-                    + sin(radians(${latUsuario})) * sin(radians(latitud))
+                    cos(radians(${latUsuario})) * cos(radians(p.latitud))
+                    * cos(radians(p.longitud) - radians(${lngUsuario}))
+                    + sin(radians(${latUsuario})) * sin(radians(p.latitud))
                   ))
               )) AS distancia_km
-            FROM predios
-            WHERE estado = 'activo'
-              AND latitud BETWEEN ${minLat} AND ${maxLat}
-              AND longitud BETWEEN ${minLng} AND ${maxLng}
+            FROM predios p
+            JOIN usuarios u ON p.admin_id = u.id
+            WHERE p.estado = 'activo'
+              AND u.activo IS TRUE
+              AND u.fecha_vencimiento_suscripcion IS NOT NULL
+              AND u.fecha_vencimiento_suscripcion >= NOW()
+              AND p.latitud BETWEEN ${minLat} AND ${maxLat}
+              AND p.longitud BETWEEN ${minLng} AND ${maxLng}
           ) AS candidatos
           WHERE distancia_km <= ${distanciaMaxKm}
           ORDER BY distancia_km ASC
@@ -154,16 +158,23 @@ export async function getCanchasDisponibles(
       if (!ciudadLimpia) return undefined;
       try {
         const prediosMatching = await prisma.$queryRaw<{ id: string }[]>`
-          SELECT id FROM predios
-          WHERE estado = 'activo'
-            AND unaccent(lower(direccion)) LIKE '%' || unaccent(lower(${ciudadLimpia})) || '%'
+          SELECT p.id FROM predios p
+          JOIN usuarios u ON p.admin_id = u.id
+          WHERE p.estado = 'activo'
+            AND u.activo IS TRUE
+            AND u.fecha_vencimiento_suscripcion IS NOT NULL
+            AND u.fecha_vencimiento_suscripcion >= NOW()
+            AND unaccent(lower(p.direccion)) LIKE '%' || unaccent(lower(${ciudadLimpia})) || '%'
         `;
         return prediosMatching.map((p) => p.id);
       } catch (err) {
         // Fallback resiliente con normalizarTexto
         const ciudadNorm = normalizarTexto(ciudadLimpia);
         const predios = await prisma.predio.findMany({
-          where: { estado: "activo" },
+          where: {
+            estado: "activo",
+            admin: { activo: true, fechaVencimientoSuscripcion: { gte: new Date() } },
+          },
           select: { id: true, direccion: true },
         });
         return predios
@@ -180,7 +191,11 @@ export async function getCanchasDisponibles(
           SELECT c.id
           FROM canchas c
           JOIN predios p ON c.predio_id = p.id
+          JOIN usuarios u ON p.admin_id = u.id
           WHERE p.estado = 'activo'
+            AND u.activo IS TRUE
+            AND u.fecha_vencimiento_suscripcion IS NOT NULL
+            AND u.fecha_vencimiento_suscripcion >= NOW()
             AND (
               unaccent(lower(c.nombre)) LIKE '%' || unaccent(lower(${nombreLimpio})) || '%'
               OR unaccent(lower(p.nombre)) LIKE '%' || unaccent(lower(${nombreLimpio})) || '%'
@@ -191,7 +206,12 @@ export async function getCanchasDisponibles(
         // Fallback resiliente con normalizarTexto
         const nombreNorm = normalizarTexto(nombreLimpio);
         const canchas = await prisma.cancha.findMany({
-          where: { predio: { estado: "activo" } },
+          where: {
+            predio: {
+              estado: "activo",
+              admin: { activo: true, fechaVencimientoSuscripcion: { gte: new Date() } },
+            },
+          },
           select: { id: true, nombre: true, predio: { select: { nombre: true } } },
         });
         return canchas
@@ -209,15 +229,22 @@ export async function getCanchasDisponibles(
       if (!provinciaLimpia) return undefined;
       try {
         const prediosMatching = await prisma.$queryRaw<{ id: string }[]>`
-          SELECT id FROM predios
-          WHERE estado = 'activo'
-            AND unaccent(lower(direccion)) LIKE '%' || unaccent(lower(${provinciaLimpia})) || '%'
+          SELECT p.id FROM predios p
+          JOIN usuarios u ON p.admin_id = u.id
+          WHERE p.estado = 'activo'
+            AND u.activo IS TRUE
+            AND u.fecha_vencimiento_suscripcion IS NOT NULL
+            AND u.fecha_vencimiento_suscripcion >= NOW()
+            AND unaccent(lower(p.direccion)) LIKE '%' || unaccent(lower(${provinciaLimpia})) || '%'
         `;
         return prediosMatching.map((p) => p.id);
       } catch (err) {
         const provNorm = normalizarTexto(provinciaLimpia);
         const predios = await prisma.predio.findMany({
-          where: { estado: "activo" },
+          where: {
+            estado: "activo",
+            admin: { activo: true, fechaVencimientoSuscripcion: { gte: new Date() } },
+          },
           select: { id: true, direccion: true },
         });
         return predios
@@ -253,6 +280,7 @@ export async function getCanchasDisponibles(
 
   // Día de la semana (0=Dom, 1=Lun...)
   const diaSemana = fecha ? fecha.getDay() : undefined;
+  const ahora = new Date();
 
   const canchas = await prisma.cancha.findMany({
     where: {
@@ -260,6 +288,12 @@ export async function getCanchasDisponibles(
       ...(canchasPorNombreIds ? { id: { in: canchasPorNombreIds } } : {}),
       predio: {
         estado: "activo",
+        admin: {
+          activo: true,
+          fechaVencimientoSuscripcion: {
+            gte: ahora,
+          },
+        },
         ...(prediosIdsFinales ? { id: { in: prediosIdsFinales } } : {}),
       },
       ...(diaSemana !== undefined ? { diasOperativos: { has: diaSemana } } : {}),

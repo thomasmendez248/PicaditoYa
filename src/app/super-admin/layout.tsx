@@ -19,7 +19,7 @@ export default async function SuperAdminLayout({ children }: { children: React.R
 
       {/* Main content */}
       <main className="flex-1 min-h-screen flex flex-col overflow-x-hidden">
-        <div className="flex-1 px-6 lg:px-10 py-8 max-w-7xl w-full mx-auto animate-fade-in">
+        <div className="flex-1 px-4 sm:px-6 lg:px-10 pt-20 lg:pt-8 pb-12 max-w-7xl w-full mx-auto animate-fade-in">
           {children}
         </div>
       </main>

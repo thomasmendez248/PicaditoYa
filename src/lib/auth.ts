@@ -33,6 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (!usuario || !usuario.passwordHash) return null;
+        if (usuario.activo === false) return null;
 
         const passwordOk = await bcrypt.compare(password, usuario.passwordHash);
         if (!passwordOk) return null;
