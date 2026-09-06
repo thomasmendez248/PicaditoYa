@@ -152,11 +152,34 @@ model Usuario {
   sessions        Session[]
   pagosAbono      PagoAbono[]
   solicitudesAprobadas SolicitudRegistro[] @relation("SolicitudAdmin")
+  pushSubscriptions    PushSubscription[]
 
   @@index([predioId])
   @@index([rol])
   @@index([planMembresiaId])
   @@map("usuarios")
+}
+
+// ─────────────────────────────────────────────
+// WEB PUSH NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+// Suscripciones Web Push de cada dispositivo/navegador de un usuario.
+// Un usuario puede tener múltiples suscripciones (PC, Android, iPhone, etc.).
+// El endpoint es único por dispositivo/navegador.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique @db.Text
+  p256dh    String   @db.Text  // Clave pública del cliente (keys.p256dh)
+  auth      String   @db.Text  // Auth secret del cliente (keys.auth)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      Usuario  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model Predio {
@@ -224,6 +247,7 @@ model Turno {
   estado                 EstadoTurno @default(pendiente)
   precioAlMomentoReserva Float       @map("precio_al_momento_reserva")
   canceladoEn            DateTime?   @map("cancelado_en")
+  notificacion30MinEnviada Boolean   @default(false) @map("notificacion_30min_enviada")
   fechaCreacion          DateTime    @default(now()) @map("fecha_creacion")
   updatedAt              DateTime    @updatedAt @map("updated_at")
 

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { adminTurnoSchema } from "@/lib/validations/admin";
 import { checkDisponibilidad } from "@/lib/disponibilidad";
 import { cancelarTurnosPendientesVencidos } from "@/lib/turnos-expirados";
+import { verificarYEnviarRecordatorios30Min } from "@/lib/recordatorios-turnos";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -25,8 +26,11 @@ export async function GET(request: NextRequest) {
   const isSuperAdmin = session.user.rol === "super_admin";
 
   try {
-    // Cancelar automáticamente turnos pendientes cuya fecha u horario ya hayan pasado
-    await cancelarTurnosPendientesVencidos();
+    // Cancelar automáticamente turnos pendientes vencidos y enviar recordatorios de 30 min
+    await Promise.all([
+      cancelarTurnosPendientesVencidos(),
+      verificarYEnviarRecordatorios30Min(),
+    ]);
     // Si viene en modo turnero simple (canchaId + fecha y sin modoExplorador)
     if (canchaId && fecha && !modoExplorador && !estado && !busqueda) {
       const fechaDate = new Date(fecha);

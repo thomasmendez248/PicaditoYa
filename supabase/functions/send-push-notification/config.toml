@@ -1,0 +1,5 @@
+[send-push-notification]
+# No se necesita acceso verificado al JWT de Supabase Auth,
+# ya que la seguridad se garantiza con el service_role key
+# en el header Authorization de quien llama a la función.
+verify_jwt = false

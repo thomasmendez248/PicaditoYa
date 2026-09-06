@@ -20,6 +20,7 @@ import {
   Save,
   ShieldCheck,
 } from "lucide-react";
+import PushNotificationsSection from "@/components/push/PushNotificationsSection";
 
 export default function ClientePerfilPage() {
   const { data: session, status, update } = useSession();
@@ -314,6 +315,9 @@ export default function ClientePerfilPage() {
                 </button>
               </div>
             </form>
+
+            {/* Notificaciones Push */}
+            <PushNotificationsSection />
 
             {/* Accesos y Estadísticas */}
             <div className="pt-8 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4">

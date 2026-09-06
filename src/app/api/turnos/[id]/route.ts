@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cancelarTurnoSchema, marcarAsistenciaSchema } from "@/lib/validations/turnos";
 import { differenceInHours } from "date-fns";
+import { sendPushToUser, formatearFechaAmigable } from "@/lib/push-service";
 
 /**
  * PATCH /api/turnos/[id]
@@ -68,6 +69,19 @@ export async function PATCH(
           },
         });
 
+        // Notificar al admin sobre la cancelación de la solicitud
+        const adminId = turno.cancha.predio.adminId;
+        if (adminId) {
+          const fechaTexto = formatearFechaAmigable(turno.fecha);
+          const nombreCliente = session.user.name || turno.nombreClienteManual || "Un cliente";
+          sendPushToUser(adminId, {
+            title: "Solicitud cancelada ❌",
+            body: `${nombreCliente} canceló su solicitud de turno en ${turno.cancha.nombre} para el ${fechaTexto} a las ${turno.horaInicio}hs.`,
+            url: "/admin",
+            tag: `solicitud-cancelada-${turno.id}`,
+          }).catch((err) => console.error("[PATCH /api/turnos/[id]] Error al enviar push de cancelación al admin:", err));
+        }
+
         return NextResponse.json({
           turno: turnoActualizado,
           mensaje: "Solicitud de turno cancelada correctamente",
@@ -96,6 +110,19 @@ export async function PATCH(
       // Si fue cancelación tarde, impacta en el puntaje como no-show
       if (!esACiempo) {
         await actualizarPuntajeCliente(turno.clienteId, "no_show");
+      }
+
+      // Notificar al administrador del predio sobre la cancelación
+      const adminId = turno.cancha.predio.adminId;
+      if (adminId) {
+        const fechaTexto = formatearFechaAmigable(turno.fecha);
+        const nombreCliente = session.user.name || turno.nombreClienteManual || "Un cliente";
+        sendPushToUser(adminId, {
+          title: "Turno cancelado ❌",
+          body: `${nombreCliente} canceló su turno en ${turno.cancha.nombre} para el ${fechaTexto} a las ${turno.horaInicio}hs.`,
+          url: "/admin",
+          tag: `turno-cancelado-${turno.id}`,
+        }).catch((err) => console.error("[PATCH /api/turnos/[id]] Error al enviar push de cancelación al admin:", err));
       }
 
       return NextResponse.json({

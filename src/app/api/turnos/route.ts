@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { checkDisponibilidad } from "@/lib/disponibilidad";
 import { turnoSchema } from "@/lib/validations/turnos";
+import { sendPushToUser, formatearFechaAmigable } from "@/lib/push-service";
 
 /**
  * GET /api/turnos?canchaId=...&fecha=YYYY-MM-DD
@@ -131,6 +132,19 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Notificar al administrador del predio sobre la nueva solicitud de turno
+    const adminId = turno.cancha.predio.adminId;
+    if (adminId) {
+      const fechaTexto = formatearFechaAmigable(fechaDate);
+      const nombreSolicitante = turno.nombreClienteManual || session?.user?.name || "Un cliente";
+      sendPushToUser(adminId, {
+        title: "Nueva solicitud de turno 📋",
+        body: `${nombreSolicitante} solicitó un turno en ${turno.cancha.nombre} para el ${fechaTexto} a las ${horaInicio}hs.`,
+        url: "/admin",
+        tag: `solicitud-turno-${turno.id}`,
+      }).catch((err) => console.error("[POST /api/turnos] Error al enviar push al admin:", err));
+    }
 
     return NextResponse.json({ turno }, { status: 201 });
   } catch (error) {
