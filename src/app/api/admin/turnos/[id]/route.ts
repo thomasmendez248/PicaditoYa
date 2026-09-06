@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { updateTurnoEstadoSchema } from "@/lib/validations/admin";
+import { sendPushToUser, formatearFechaAmigable } from "@/lib/push-service";
 
 export async function PUT(
   request: NextRequest,
@@ -46,6 +47,7 @@ export async function PUT(
     }
 
     const isCancelacion = parsed.data.estado === "cancelado_a_tiempo" || parsed.data.estado === "cancelado_tarde";
+    const fueAprobado = parsed.data.estado === "confirmado" && turno.estado === "pendiente";
 
     const turnoActualizado = await prisma.turno.update({
       where: { id },
@@ -54,6 +56,17 @@ export async function PUT(
         canceladoEn: isCancelacion ? new Date() : null,
       },
     });
+
+    // Notificar al cliente cuando se le aprueba/confirma el turno
+    if (fueAprobado && turno.clienteId) {
+      const fechaTexto = formatearFechaAmigable(turno.fecha);
+      sendPushToUser(turno.clienteId, {
+        title: "¡Turno aprobado! ⚽",
+        body: `Tu turno en ${turno.cancha.predio.nombre} (${turno.cancha.nombre}) para el ${fechaTexto} a las ${turno.horaInicio}hs fue aprobado.`,
+        url: "/cliente/mis-turnos",
+        tag: `turno-aprobado-${turno.id}`,
+      }).catch((err) => console.error("[PUT /api/admin/turnos/[id]] Error al enviar push al cliente:", err));
+    }
 
     return NextResponse.json({ turno: turnoActualizado });
   } catch (error) {

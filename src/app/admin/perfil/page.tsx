@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAdmin } from "@/components/admin/AdminContext";
 import PredioModal from "@/components/admin/PredioModal";
+import PushNotificationsSection from "@/components/push/PushNotificationsSection";
 
 export default function AdminPerfilPage() {
   const { data: session, update } = useSession();
@@ -336,6 +337,9 @@ export default function AdminPerfilPage() {
           predio={selectedPredio}
         />
       )}
+
+      {/* ── NOTIFICACIONES PUSH ── */}
+      <PushNotificationsSection />
 
       {/* ── PLAN Y MEMBRESÍA ── */}
       <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-8 sm:p-10 rounded-[2rem] shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
