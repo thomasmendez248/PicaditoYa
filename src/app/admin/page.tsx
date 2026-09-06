@@ -23,6 +23,11 @@ import {
   AlertTriangle,
   Eye,
   Phone,
+  TrendingUp,
+  BarChart3,
+  Users,
+  Flame,
+  Award,
 } from "lucide-react";
 import { useAdmin } from "@/components/admin/AdminContext";
 import PredioModal from "@/components/admin/PredioModal";
@@ -35,9 +40,22 @@ export type TurnoStatsItem = {
   estado: string;
   precioAlMomentoReserva: number;
   cancha: { nombre: string };
-  cliente?: { nombre: string; telefono: string | null; email?: string | null } | null;
+  cliente?: { nombre: string; apellido?: string | null; telefono: string | null; email?: string | null } | null;
   nombreClienteManual?: string | null;
   telefonoClienteManual?: string | null;
+};
+
+export type AnalyticsData = {
+  ingresosPorDia: { fecha: string; total: number }[];
+  ingresosPorCancha: {
+    semanal: { nombre: string; total: number }[];
+    mensual: { nombre: string; total: number }[];
+  };
+  horariosMasVendidos: { hora: string; cantidad: number }[];
+  clientesFrecuentes: { nombre: string; cantidad: number; ingresos: number }[];
+  cancelacionesMes: number;
+  confirmadosMes: number;
+  tasaCancelacion: number;
 };
 
 type StatsData = {
@@ -55,6 +73,7 @@ type StatsData = {
   ocupacionHoyPorcentaje: number;
   proximosTurnosHoy: TurnoStatsItem[];
   turnosPendientes?: TurnoStatsItem[];
+  analytics?: AnalyticsData;
 };
 
 export default function AdminDashboardPage() {
@@ -66,6 +85,7 @@ export default function AdminDashboardPage() {
 
   // Estados para filtros, acciones y detalles de turnos
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendientes" | "confirmados">("todos");
+  const [periodoCancha, setPeriodoCancha] = useState<"semanal" | "mensual">("semanal");
   const [turnoDetalle, setTurnoDetalle] = useState<TurnoStatsItem | null>(null);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
 
@@ -244,7 +264,9 @@ export default function AdminDashboardPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
             {stats.turnosPendientes.map((t) => {
-              const clienteNombre = t.nombreClienteManual || t.cliente?.nombre || "Cliente sin nombre";
+              const clienteNombre = t.cliente
+                ? [t.cliente.nombre, t.cliente.apellido].filter(Boolean).join(" ")
+                : t.nombreClienteManual || "Cliente sin nombre";
               const telefono = t.telefonoClienteManual || t.cliente?.telefono;
               const isProcesando = procesandoId === t.id;
               const fechaStr = t.fecha ? new Date(t.fecha).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) : "Hoy";
@@ -419,6 +441,357 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      {/* ── SECCIÓN DE ANALYTICS & RENDIMIENTO DE NEGOCIO ── */}
+      {stats?.analytics && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 className="w-4 h-4 text-brand" />
+                <span className="text-xs font-black uppercase tracking-widest text-brand">Rendimiento Operativo</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-wide">
+                Métricas & Estadísticas del Negocio
+              </h2>
+            </div>
+            <p className="text-xs text-white/50 max-w-xs">
+              Datos analíticos actualizados para optimizar la ocupación, precios y retención de jugadores.
+            </p>
+          </div>
+
+          {/* Grilla Superior de Analytics: Ingresos por Día & Ingresos por Cancha */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* 1. Ingresos por día (Últimos 7 días) */}
+            <div className="lg:col-span-7 bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 sm:p-7 rounded-[2rem] shadow-2xl flex flex-col justify-between space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-brand" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Ingresos por Día</h3>
+                    <p className="text-xs text-white/50">Evolución de los últimos 7 días</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-brand bg-brand/10 border border-brand/20 px-3 py-1 rounded-full">
+                  Total semana: $
+                  {stats.analytics.ingresosPorDia.reduce((acc, d) => acc + d.total, 0).toLocaleString("es-AR")}
+                </span>
+              </div>
+
+              {/* Gráfico de barras interactivo */}
+              <div className="h-48 flex items-end justify-between gap-2 sm:gap-3 pt-6 pb-2 px-2 border-b border-white/5">
+                {(() => {
+                  const maxDia = Math.max(...stats.analytics.ingresosPorDia.map((d) => d.total), 1);
+                  const diasNombres = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+                  return stats.analytics.ingresosPorDia.map((dia, idx) => {
+                    const altura = Math.max(8, Math.round((dia.total / maxDia) * 100));
+                    const isHoy = idx === stats.analytics!.ingresosPorDia.length - 1;
+                    const dateObj = new Date(`${dia.fecha}T12:00:00`);
+                    const nombreDia = diasNombres[dateObj.getDay()];
+                    const diaNum = dateObj.getDate();
+
+                    return (
+                      <div key={dia.fecha} className="flex-1 flex flex-col items-center h-full justify-end group">
+                        {/* Tooltip / Valor sobre la barra */}
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-2 px-2 py-1 rounded-lg bg-surface border border-white/10 text-[10px] font-mono font-bold text-brand shadow-lg whitespace-nowrap pointer-events-none">
+                          ${dia.total.toLocaleString("es-AR")}
+                        </div>
+
+                        {/* Barra */}
+                        <div
+                          style={{ height: `${altura}%` }}
+                          className={`w-full max-w-[36px] rounded-t-xl transition-all duration-500 group-hover:scale-105 ${
+                            isHoy
+                              ? "bg-gradient-to-t from-brand to-emerald-300 shadow-[0_0_15px_rgba(69,228,148,0.4)]"
+                              : dia.total > 0
+                              ? "bg-gradient-to-t from-brand/60 to-brand hover:from-brand hover:to-emerald-300"
+                              : "bg-white/5"
+                          }`}
+                        />
+
+                        {/* Etiqueta del día */}
+                        <span
+                          className={`text-[11px] font-bold mt-2.5 uppercase tracking-wider ${
+                            isHoy ? "text-brand" : "text-white/60"
+                          }`}
+                        >
+                          {nombreDia} {diaNum}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* 2. Ingresos por cancha (con selector Semanal / Mensual) */}
+            <div className="lg:col-span-5 bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 sm:p-7 rounded-[2rem] shadow-2xl flex flex-col justify-between space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                    <CircleDot className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Ingresos por Cancha</h3>
+                    <p className="text-xs text-white/50">
+                      {periodoCancha === "semanal" ? "Últimos 7 días" : "Últimos 30 días"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Selector Semanal / Mensual */}
+                <div className="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPeriodoCancha("semanal")}
+                    className={`px-3 py-1 rounded-xl font-bold transition-all text-xs ${
+                      periodoCancha === "semanal"
+                        ? "bg-brand text-surface shadow-sm"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    Semanal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPeriodoCancha("mensual")}
+                    className={`px-3 py-1 rounded-xl font-bold transition-all text-xs ${
+                      periodoCancha === "mensual"
+                        ? "bg-brand text-surface shadow-sm"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    Mensual
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3.5 flex-1 justify-center flex flex-col">
+                {(() => {
+                  const rawData = stats.analytics.ingresosPorCancha;
+                  const canchas = Array.isArray(rawData)
+                    ? rawData
+                    : rawData[periodoCancha] || [];
+
+                  if (canchas.length === 0) {
+                    return (
+                      <p className="text-xs text-white/40 text-center py-6">
+                        Aún no hay ingresos registrados por cancha para el período {periodoCancha}.
+                      </p>
+                    );
+                  }
+
+                  const totalCanchas = canchas.reduce((acc, c) => acc + c.total, 0) || 1;
+
+                  return canchas.map((c, idx) => {
+                    const porcentaje = Math.round((c.total / totalCanchas) * 100);
+                    return (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-white truncate max-w-[170px]">{c.nombre}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-brand">${c.total.toLocaleString("es-AR")}</span>
+                            <span className="text-[10px] font-mono text-white/40">({porcentaje}%)</span>
+                          </div>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
+                          <div
+                            style={{ width: `${porcentaje}%` }}
+                            className="h-full bg-gradient-to-r from-emerald-500 to-brand rounded-full transition-all duration-500"
+                          />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Grilla Inferior de Analytics: Horarios Más Vendidos, Clientes Frecuentes & Cancelaciones */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            {/* 3. Horarios más vendidos */}
+            <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] shadow-2xl space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Flame className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Horarios Más Vendidos</h3>
+                  <p className="text-xs text-white/50">Turnos pico más demandados</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 pt-2">
+                {stats.analytics.horariosMasVendidos.length > 0 ? (
+                  stats.analytics.horariosMasVendidos.map((h, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-amber-500/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${
+                            idx === 0
+                              ? "bg-amber-400 text-surface font-black shadow-sm"
+                              : idx === 1
+                              ? "bg-white/20 text-white font-bold"
+                              : "bg-white/10 text-white/60"
+                          }`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <span className="font-mono text-sm font-bold text-white">{h.hora} hs</span>
+                      </div>
+                      <span className="text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
+                        {h.cantidad} reservas
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-white/40 text-center py-6">Sin registros de reservas todavía.</p>
+                )}
+              </div>
+            </div>
+
+            {/* 4. Clientes frecuentes */}
+            <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] shadow-2xl space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                  <Users className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Clientes Frecuentes</h3>
+                  <p className="text-xs text-white/50">Jugadores con más reservas</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 pt-2">
+                {stats.analytics.clientesFrecuentes.length > 0 ? (
+                  stats.analytics.clientesFrecuentes.map((c, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-blue-500/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 font-black text-xs shrink-0">
+                          {c.nombre.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{c.nombre}</p>
+                          <p className="text-[10px] text-white/50">{c.cantidad} partidos jugados</p>
+                        </div>
+                      </div>
+                      <span className="font-mono text-xs font-bold text-brand shrink-0">
+                        ${c.ingresos.toLocaleString("es-AR")}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-white/40 text-center py-6">No hay clientes con turnos confirmados aún.</p>
+                )}
+              </div>
+            </div>
+
+            {/* 5. Cancelaciones */}
+            <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] shadow-2xl flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                      <Ban className="w-4 h-4 text-red-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">Cancelaciones</h3>
+                      <p className="text-xs text-white/50">Últimos 30 días</p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                      stats.analytics.tasaCancelacion <= 10
+                        ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                        : stats.analytics.tasaCancelacion <= 20
+                        ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                        : "bg-red-500/10 text-red-300 border-red-500/30"
+                    }`}
+                  >
+                    {stats.analytics.tasaCancelacion <= 10 ? "Tasa Saludable" : "A revisar"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="p-3.5 rounded-xl bg-white/5 border border-white/5">
+                    <span className="text-[10px] uppercase font-bold text-white/50 block">Cancelados</span>
+                    <span className="text-2xl font-display font-black text-red-400 mt-1 block">
+                      {stats.analytics.cancelacionesMes}
+                    </span>
+                    <span className="text-[10px] text-white/40">turnos caídos</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-white/5 border border-white/5">
+                    <span className="text-[10px] uppercase font-bold text-white/50 block">Tasa de Cancelación</span>
+                    <span className="text-2xl font-display font-black text-white mt-1 block">
+                      {stats.analytics.tasaCancelacion}%
+                    </span>
+                    <span className="text-[10px] text-white/40">del total generado</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra de Proporción Confirmados vs Cancelados */}
+              <div className="space-y-2 pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    {stats.analytics.confirmadosMes} Completados
+                  </span>
+                  <span className="text-red-400 font-bold flex items-center gap-1">
+                    <Ban className="w-3 h-3" />
+                    {stats.analytics.cancelacionesMes} Cancelados
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-white/5 flex overflow-hidden">
+                  <div
+                    style={{
+                      width: `${Math.max(
+                        0,
+                        Math.min(
+                          100,
+                          (stats.analytics.confirmadosMes /
+                            (stats.analytics.confirmadosMes + stats.analytics.cancelacionesMes || 1)) *
+                            100
+                        )
+                      )}%`,
+                    }}
+                    className="h-full bg-emerald-500 rounded-l-full"
+                  />
+                  <div
+                    style={{
+                      width: `${Math.max(
+                        0,
+                        Math.min(
+                          100,
+                          (stats.analytics.cancelacionesMes /
+                            (stats.analytics.confirmadosMes + stats.analytics.cancelacionesMes || 1)) *
+                            100
+                        )
+                      )}%`,
+                    }}
+                    className="h-full bg-red-500 rounded-r-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* ── CRONOGRAMA DE HOY A ANCHO COMPLETO ── */}
       <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-[2rem] shadow-2xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -463,10 +836,10 @@ export default function AdminDashboardPage() {
             </div>
 
             <Link
-              href="/admin/turnos"
+              href="/admin/turnos?vista=listado"
               className="text-xs font-bold text-brand hover:text-brand-hover flex items-center gap-1 transition-colors group hidden md:flex shrink-0"
             >
-              Ver grilla completa <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              Explorar todos los turnos <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
         </div>
@@ -474,7 +847,9 @@ export default function AdminDashboardPage() {
         {turnosFiltrados.length > 0 ? (
           <div className="space-y-3">
             {turnosFiltrados.map((t) => {
-              const cliente = t.nombreClienteManual || t.cliente?.nombre || "Cliente sin nombre";
+              const cliente = t.cliente
+                ? [t.cliente.nombre, t.cliente.apellido].filter(Boolean).join(" ")
+                : t.nombreClienteManual || "Cliente sin nombre";
               const telefono = t.telefonoClienteManual || t.cliente?.telefono;
               const isPendiente = t.estado === "pendiente";
               const isConfirmado = t.estado === "confirmado" || t.estado === "completado";
@@ -641,9 +1016,11 @@ export default function AdminDashboardPage() {
               {/* Información del cliente */}
               <div className="p-5 bg-white/5 rounded-2xl border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-white/50">Cliente:</span>
+                  <span className="text-xs text-white/50">Cliente / Titular:</span>
                   <span className="text-sm font-bold text-white">
-                    {turnoDetalle.nombreClienteManual || turnoDetalle.cliente?.nombre || "Sin especificar"}
+                    {turnoDetalle.cliente
+                      ? [turnoDetalle.cliente.nombre, turnoDetalle.cliente.apellido].filter(Boolean).join(" ")
+                      : turnoDetalle.nombreClienteManual || "Sin especificar"}
                   </span>
                 </div>
 
@@ -684,7 +1061,7 @@ export default function AdminDashboardPage() {
                   <div className="pt-2 border-t border-white/5">
                     <a
                       href={`https://wa.me/${(turnoDetalle.telefonoClienteManual || turnoDetalle.cliente?.telefono || "").replace(/\D/g, "")}?text=${encodeURIComponent(
-                        `Hola ${turnoDetalle.nombreClienteManual || turnoDetalle.cliente?.nombre || ""}! Te escribimos de ${turnoDetalle.cancha.nombre} respecto a tu reserva de turno (${turnoDetalle.horaInicio} a ${turnoDetalle.horaFin}).`
+                        `Hola ${turnoDetalle.cliente ? [turnoDetalle.cliente.nombre, turnoDetalle.cliente.apellido].filter(Boolean).join(" ") : turnoDetalle.nombreClienteManual || ""}! Te escribimos de ${turnoDetalle.cancha.nombre} respecto a tu reserva de turno (${turnoDetalle.horaInicio} a ${turnoDetalle.horaFin}).`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"

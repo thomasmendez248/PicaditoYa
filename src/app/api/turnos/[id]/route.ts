@@ -46,6 +46,18 @@ export async function PATCH(
         );
       }
 
+      // Verificar si la fecha y horario del turno ya pasaron
+      const ahora = new Date();
+      const fechaTurno = new Date(
+        `${turno.fecha.toISOString().split("T")[0]}T${turno.horaInicio}:00`
+      );
+      if (fechaTurno <= ahora) {
+        return NextResponse.json(
+          { error: "No se puede cancelar un turno cuya fecha y horario ya han pasado" },
+          { status: 400 }
+        );
+      }
+
       // Si estaba pendiente, se cancela directamente sin penalización
       if (turno.estado === "pendiente") {
         const turnoActualizado = await prisma.turno.update({
@@ -63,10 +75,6 @@ export async function PATCH(
       }
 
       // Calcular horas de anticipación
-      const ahora = new Date();
-      const fechaTurno = new Date(
-        `${turno.fecha.toISOString().split("T")[0]}T${turno.horaInicio}:00`
-      );
       const horasAnticipacion = differenceInHours(fechaTurno, ahora);
 
       // La política de cancelación: usa override de cancha si existe, sino la del predio

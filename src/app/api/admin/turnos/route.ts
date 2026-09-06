@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { adminTurnoSchema } from "@/lib/validations/admin";
 import { checkDisponibilidad } from "@/lib/disponibilidad";
+import { cancelarTurnosPendientesVencidos } from "@/lib/turnos-expirados";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -13,61 +14,159 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const canchaId = searchParams.get("canchaId");
+  const predioId = searchParams.get("predioId");
   const fecha = searchParams.get("fecha");
+  const estado = searchParams.get("estado");
+  const busqueda = searchParams.get("busqueda");
+  const fechaDesde = searchParams.get("fechaDesde");
+  const fechaHasta = searchParams.get("fechaHasta");
+  const modoExplorador = searchParams.get("modoExplorador") === "true";
 
-  if (!canchaId || !fecha) {
-    return NextResponse.json(
-      { error: "canchaId y fecha (YYYY-MM-DD) son requeridos" },
-      { status: 400 }
-    );
-  }
-
-  const fechaDate = new Date(fecha);
-  if (isNaN(fechaDate.getTime())) {
-    return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
-  }
+  const isSuperAdmin = session.user.rol === "super_admin";
 
   try {
-    const isSuperAdmin = session.user.rol === "super_admin";
+    // Cancelar automáticamente turnos pendientes cuya fecha u horario ya hayan pasado
+    await cancelarTurnosPendientesVencidos();
+    // Si viene en modo turnero simple (canchaId + fecha y sin modoExplorador)
+    if (canchaId && fecha && !modoExplorador && !estado && !busqueda) {
+      const fechaDate = new Date(fecha);
+      if (isNaN(fechaDate.getTime())) {
+        return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+      }
 
-    // Validar acceso a la cancha
-    const cancha = await prisma.cancha.findUnique({
-      where: { id: canchaId },
-      include: { predio: true },
-    });
+      const cancha = await prisma.cancha.findUnique({
+        where: { id: canchaId },
+        include: { predio: true },
+      });
 
-    if (!cancha) {
-      return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
+      if (!cancha) {
+        return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
+      }
+
+      if (!isSuperAdmin && cancha.predio.adminId !== session.user.id) {
+        return NextResponse.json({ error: "Sin permisos para esta cancha" }, { status: 403 });
+      }
+
+      const turnos = await prisma.turno.findMany({
+        where: {
+          canchaId,
+          fecha: { equals: fechaDate },
+          estado: { notIn: ["cancelado_a_tiempo", "cancelado_tarde"] },
+        },
+        include: {
+          cliente: {
+            select: { id: true, nombre: true, email: true, telefono: true },
+          },
+        },
+        orderBy: { horaInicio: "asc" },
+      });
+
+      return NextResponse.json({ turnos, cancha });
     }
 
-    if (!isSuperAdmin && cancha.predio.adminId !== session.user.id) {
-      return NextResponse.json({ error: "Sin permisos para esta cancha" }, { status: 403 });
+    // Modo Explorador y Filtros avanzados
+    const where: any = {};
+
+    if (canchaId) {
+      const cancha = await prisma.cancha.findUnique({
+        where: { id: canchaId },
+        include: { predio: true },
+      });
+      if (!cancha) {
+        return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
+      }
+      if (!isSuperAdmin && cancha.predio.adminId !== session.user.id) {
+        return NextResponse.json({ error: "Sin permisos para esta cancha" }, { status: 403 });
+      }
+      where.canchaId = canchaId;
+    } else if (predioId) {
+      const predio = await prisma.predio.findUnique({
+        where: { id: predioId },
+      });
+      if (!predio) {
+        return NextResponse.json({ error: "Predio no encontrado" }, { status: 404 });
+      }
+      if (!isSuperAdmin && predio.adminId !== session.user.id) {
+        return NextResponse.json({ error: "Sin permisos para este predio" }, { status: 403 });
+      }
+      where.cancha = { predioId };
+    } else if (!isSuperAdmin) {
+      where.cancha = { predio: { adminId: session.user.id } };
+    }
+
+    // Filtro de Fecha
+    if (fecha) {
+      const fechaDate = new Date(fecha);
+      if (!isNaN(fechaDate.getTime())) {
+        where.fecha = { equals: fechaDate };
+      }
+    } else if (fechaDesde || fechaHasta) {
+      where.fecha = {};
+      if (fechaDesde) where.fecha.gte = new Date(fechaDesde);
+      if (fechaHasta) where.fecha.lte = new Date(fechaHasta);
+    }
+
+    // Filtro de Estado
+    if (estado && estado !== "todos") {
+      if (estado === "cancelados") {
+        where.estado = { in: ["cancelado_a_tiempo", "cancelado_tarde"] };
+      } else {
+        where.estado = estado;
+      }
+    }
+
+    // Filtro de Búsqueda por cliente
+    if (busqueda && busqueda.trim()) {
+      const q = busqueda.trim();
+      where.OR = [
+        { nombreClienteManual: { contains: q, mode: "insensitive" } },
+        { telefonoClienteManual: { contains: q, mode: "insensitive" } },
+        { cliente: { nombre: { contains: q, mode: "insensitive" } } },
+        { cliente: { apellido: { contains: q, mode: "insensitive" } } },
+        { cliente: { email: { contains: q, mode: "insensitive" } } },
+        { cliente: { telefono: { contains: q, mode: "insensitive" } } },
+      ];
     }
 
     const turnos = await prisma.turno.findMany({
-      where: {
-        canchaId,
-        fecha: {
-          equals: fechaDate,
-        },
-        estado: {
-          notIn: ["cancelado_a_tiempo", "cancelado_tarde"],
-        },
-      },
+      where,
       include: {
+        cancha: {
+          select: {
+            id: true,
+            nombre: true,
+            capacidad: true,
+            precioTurno: true,
+            predio: {
+              select: {
+                id: true,
+                nombre: true,
+                direccion: true,
+                telefono: true,
+              },
+            },
+          },
+        },
         cliente: {
           select: {
             id: true,
             nombre: true,
+            apellido: true,
             email: true,
             telefono: true,
+            image: true,
+            puntajeAsistencia: true,
           },
         },
       },
-      orderBy: { horaInicio: "asc" },
+      orderBy: [
+        { fecha: "desc" },
+        { horaInicio: "desc" },
+      ],
+      take: 200,
     });
 
-    return NextResponse.json({ turnos, cancha });
+    return NextResponse.json({ turnos });
   } catch (error) {
     console.error("[GET /api/admin/turnos]", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
@@ -145,7 +244,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         cliente: {
-          select: { id: true, nombre: true, email: true, telefono: true },
+          select: { id: true, nombre: true, apellido: true, email: true, telefono: true },
         },
       },
     });
