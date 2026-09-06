@@ -40,7 +40,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         return {
           id: usuario.id,
-          name: usuario.nombre,
+          name: [usuario.nombre, usuario.apellido].filter(Boolean).join(" "),
           email: usuario.email,
           rol: usuario.rol,
           predioId: usuario.predioId,

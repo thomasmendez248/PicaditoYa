@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { cancelarTurnosPendientesVencidos } from "@/lib/turnos-expirados";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await cancelarTurnosPendientesVencidos();
     const turnos = await prisma.turno.findMany({
       where: {
         clienteId: session.user.id,

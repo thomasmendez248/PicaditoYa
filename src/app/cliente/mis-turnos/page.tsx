@@ -32,6 +32,43 @@ function limpiarTelefono(tel: string | null | undefined): string {
   return `549${nums}`;
 }
 
+function esTurnoPasado(fechaStr: string, horaFinStr: string, horaInicioStr?: string): boolean {
+  try {
+    const datePart = fechaStr.split("T")[0];
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [finH, finM] = (horaFinStr || "00:00").split(":").map(Number);
+    
+    // Si horaFin es "00:00" o menor/igual que horaInicio (cruzó medianoche), el fin es al día siguiente
+    const fechaFin = new Date(year, month - 1, day, finH, finM, 0, 0);
+    if (horaInicioStr) {
+      const [iniH, iniM] = horaInicioStr.split(":").map(Number);
+      const iniMin = iniH * 60 + iniM;
+      let endMin = finH * 60 + finM;
+      if (endMin === 0 || endMin <= iniMin) {
+        fechaFin.setDate(fechaFin.getDate() + 1);
+      }
+    } else if (finH === 0 && finM === 0) {
+      fechaFin.setDate(fechaFin.getDate() + 1);
+    }
+
+    return new Date() > fechaFin;
+  } catch {
+    return false;
+  }
+}
+
+function esTurnoIniciado(fechaStr: string, horaInicioStr: string): boolean {
+  try {
+    const datePart = fechaStr.split("T")[0];
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [iniH, iniM] = (horaInicioStr || "00:00").split(":").map(Number);
+    const fechaIni = new Date(year, month - 1, day, iniH, iniM, 0, 0);
+    return new Date() >= fechaIni;
+  } catch {
+    return false;
+  }
+}
+
 type TurnoCliente = {
   id: string;
   canchaId: string;
@@ -132,10 +169,14 @@ export default function ClienteMisTurnosPage() {
   };
 
   const turnosProximos = turnos.filter(
-    (t) => t.estado === "pendiente" || t.estado === "confirmado"
+    (t) =>
+      (t.estado === "pendiente" || t.estado === "confirmado") &&
+      !esTurnoPasado(t.fecha, t.horaFin, t.horaInicio)
   );
   const turnosHistorial = turnos.filter(
-    (t) => t.estado !== "pendiente" && t.estado !== "confirmado"
+    (t) =>
+      (t.estado !== "pendiente" && t.estado !== "confirmado") ||
+      esTurnoPasado(t.fecha, t.horaFin, t.horaInicio)
   );
 
   const turnosFiltrados = 
@@ -145,7 +186,26 @@ export default function ClienteMisTurnosPage() {
       ? turnosHistorial 
       : turnos;
 
-  const getEstadoBadge = (estado: TurnoCliente["estado"]) => {
+  const getEstadoBadge = (estado: TurnoCliente["estado"], pasado: boolean) => {
+    if (pasado) {
+      if (estado === "confirmado") {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Jugado / Finalizado
+          </span>
+        );
+      }
+      if (estado === "pendiente") {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white/50 border border-white/15">
+            <Clock className="w-3.5 h-3.5" />
+            Vencido (No confirmado)
+          </span>
+        );
+      }
+    }
+
     switch (estado) {
       case "confirmado":
         return (
@@ -263,7 +323,7 @@ export default function ClienteMisTurnosPage() {
               </div>
               <div>
                 <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Historial Total</span>
-                <p className="text-2xl font-display font-black text-white">{turnos.length}</p>
+                <p className="text-2xl font-display font-black text-white">{turnosHistorial.length}</p>
               </div>
             </div>
 
@@ -360,7 +420,8 @@ export default function ClienteMisTurnosPage() {
           {!cargando && !error && turnosFiltrados.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {turnosFiltrados.map((turno) => {
-                const fechaDate = new Date(turno.fecha);
+                const [y, m, d] = turno.fecha.split("T")[0].split("-").map(Number);
+                const fechaDate = new Date(y, m - 1, d, 12, 0, 0);
                 const fechaLegible = format(fechaDate, "EEEE d 'de' MMMM, yyyy", { locale: es });
                 const tipoCancha =
                   turno.cancha.capacidad <= 10
@@ -369,7 +430,12 @@ export default function ClienteMisTurnosPage() {
                     ? "Fútbol 7"
                     : "Fútbol 11";
 
-                const puedeCancelar = turno.estado === "pendiente" || turno.estado === "confirmado";
+                const esPasado = esTurnoPasado(turno.fecha, turno.horaFin, turno.horaInicio);
+                const esIniciado = esTurnoIniciado(turno.fecha, turno.horaInicio);
+                const puedeCancelar =
+                  (turno.estado === "pendiente" || turno.estado === "confirmado") &&
+                  !esIniciado &&
+                  !esPasado;
 
                 return (
                   <div
@@ -382,7 +448,7 @@ export default function ClienteMisTurnosPage() {
                         <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15">
                           {tipoCancha}
                         </span>
-                        {getEstadoBadge(turno.estado)}
+                        {getEstadoBadge(turno.estado, esPasado)}
                       </div>
 
                       {/* Nombre Cancha y Predio */}
@@ -466,7 +532,7 @@ export default function ClienteMisTurnosPage() {
                           <ChevronRight className="w-3.5 h-3.5" />
                         </Link>
 
-                        {puedeCancelar && (
+                        {puedeCancelar ? (
                           <button
                             onClick={() => {
                               setTurnoACancelar(turno);
@@ -476,7 +542,11 @@ export default function ClienteMisTurnosPage() {
                           >
                             Cancelar Turno
                           </button>
-                        )}
+                        ) : esPasado ? (
+                          <span className="px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/40">
+                            Turno finalizado
+                          </span>
+                        ) : null}
                       </div>
                     </div>
 

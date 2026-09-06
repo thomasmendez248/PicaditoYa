@@ -9,9 +9,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Phone,
   Loader2,
-  User,
   MessageCircle,
   ExternalLink,
   CalendarCheck,
@@ -283,12 +281,7 @@ export default function ModalReservaCancha({
 
     const nombreFinal = estaAutenticado
       ? (session?.user?.name || "Jugador")
-      : nombreCliente.trim();
-
-    if (!nombreFinal) {
-      setError("Por favor ingresá tu nombre para registrar la reserva");
-      return;
-    }
+      : (nombreCliente.trim() || "Jugador");
 
     if (!horaInicio || !horaFin) {
       setError("Por favor seleccioná un horario para el turno");
@@ -313,8 +306,8 @@ export default function ModalReservaCancha({
           fecha,
           horaInicio,
           horaFin,
-          nombreCliente: nombreFinal,
-          telefonoCliente: estaAutenticado ? undefined : telefonoCliente.trim() || undefined,
+          nombreCliente: estaAutenticado ? session?.user?.name : (nombreCliente.trim() || undefined),
+          telefonoCliente: estaAutenticado ? undefined : (telefonoCliente.trim() || undefined),
         }),
       });
 
@@ -323,14 +316,20 @@ export default function ModalReservaCancha({
         throw new Error(data.error || "No se pudo registrar el turno");
       }
 
-      // 2. Construir enlace a WhatsApp con los datos completos del turno
+      // 2. Construir enlace a WhatsApp con los datos del turno
       const numLimpio = limpiarTelefono(predio.telefono);
+      const lineaTitular = estaAutenticado && session?.user?.name
+        ? `👤 *Titular:* ${session.user.name}\n`
+        : nombreCliente.trim()
+        ? `👤 *Titular:* ${nombreCliente.trim()}\n`
+        : "";
+
       const mensaje =
         `¡Hola! Acabo de reservar un turno en *${predio.nombre}*:\n\n` +
         `⚽ *Cancha:* ${cancha.nombre}\n` +
         `📅 *Fecha:* ${fecha}\n` +
         `⏰ *Horario:* ${horaInicio} a ${horaFin} hs (${duracionMinutosReal} min)\n` +
-        `👤 *Titular:* ${nombreFinal}${telefonoCliente && !estaAutenticado ? `\n📞 *Teléfono:* ${telefonoCliente.trim()}` : ""}\n` +
+        lineaTitular +
         `💰 *Total:* $${precioCalculado.toLocaleString("es-AR")}\n\n` +
         `Te escribo para confirmar y coordinar la reserva. ¡Muchas gracias!`;
 
@@ -424,7 +423,7 @@ export default function ModalReservaCancha({
                 <div className="flex justify-between">
                   <span className="text-white/50">Titular:</span>
                   <span className="font-bold text-white">
-                    {estaAutenticado ? session?.user?.name : nombreCliente}
+                    {estaAutenticado ? (session?.user?.name || "Usuario PicaditoYa") : (nombreCliente || "Invitado")}
                   </span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-white/10">
@@ -570,8 +569,8 @@ export default function ModalReservaCancha({
                 )}
               </div>
 
-              {/* 3. Tus Datos: Si el usuario inició sesión, NO se piden campos. Si es invitado, se piden. */}
-              {estaAutenticado ? (
+              {/* Si el usuario inició sesión, mostramos confirmación de su perfil. Si no hay sesión, no se le pide rellenar datos. */}
+              {estaAutenticado && (
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 animate-fade-in">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-brand/15 border border-brand/30 flex items-center justify-center text-brand font-black text-sm uppercase">
@@ -593,43 +592,6 @@ export default function ModalReservaCancha({
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Sesión iniciada
                   </span>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3 animate-fade-in">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-white/70 block">
-                    3. Tus Datos para la Reserva
-                  </span>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[10px] text-white/50 mb-1">Nombre y Apellido *</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
-                        <input
-                          type="text"
-                          required
-                          placeholder="Ej: Juan Pérez"
-                          value={nombreCliente}
-                          onChange={(e) => setNombreCliente(e.target.value)}
-                          className="w-full bg-surface border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-brand"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-white/50 mb-1">Teléfono / WhatsApp (opcional)</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
-                        <input
-                          type="tel"
-                          placeholder="Ej: 351 123 4567"
-                          value={telefonoCliente}
-                          onChange={(e) => setTelefonoCliente(e.target.value)}
-                          className="w-full bg-surface border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-brand"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -654,7 +616,7 @@ export default function ModalReservaCancha({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={guardando || (!estaAutenticado && !nombreCliente.trim()) || !horaInicio || !horaFin}
+                  disabled={guardando || !horaInicio || !horaFin}
                   className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 text-surface font-black text-sm py-4 rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-[0_0_20px_rgba(69,228,148,0.3)] hover:scale-[1.01] active:scale-[0.98]"
                 >
                   {guardando ? (
