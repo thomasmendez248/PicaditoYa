@@ -3,6 +3,7 @@ import { z } from "zod";
 export const canchaSchema = z.object({
   predioId: z.string().cuid("ID de predio inválido"),
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  deporte: z.enum(["futbol", "padel", "tenis", "basquet", "voley"]).default("futbol"),
   capacidad: z.number().int().min(2, "Capacidad mínima 2 jugadores").default(10),
   precioTurno: z.number().min(0, "El precio no puede ser negativo"),
   duracionTurnoMinutos: z.number().int().min(15, "Mínimo 15 minutos").default(60),
@@ -24,6 +25,8 @@ export const adminTurnoSchema = z.object({
   clienteId: z.string().cuid().optional().nullable(),
   estado: z.enum(["pendiente", "confirmado"]).default("confirmado"),
   precioAlMomentoReserva: z.number().optional(),
+  esFijo: z.boolean().default(false),
+  repeticionesSemanas: z.number().int().min(1).max(52).default(4).optional(),
 });
 
 export const updateTurnoEstadoSchema = z.object({

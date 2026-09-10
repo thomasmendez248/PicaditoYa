@@ -22,11 +22,14 @@ import {
   Wallet,
   LineChart,
   Compass,
+  UserCheck,
+  MessageCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { DEPORTES_FILTRO, getBadgeDeporte } from "@/lib/sports";
 
 const PROVINCIAS_ARGENTINAS = [
   "Buenos Aires",
@@ -70,6 +73,7 @@ const MapaDisponibilidad = dynamic(
 type Cancha = {
   id: string;
   nombre: string;
+  deporte?: string;
   capacidad: number;
   precioTurno: number;
   duracionTurnoMinutos: number;
@@ -88,33 +92,33 @@ type Cancha = {
 const BENEFICIOS_DUENOS = [
   {
     icon: TrendingUp,
-    titulo: "Tu agenda, en piloto automatico",
-    descripcion: "Olvida el telefono. Tus canchas se reservan solas, de dia y de noche, sin que levantes un dedo.",
+    titulo: "Fútbol, pádel, tenis y más",
+    descripcion: "Gestioná canchas de múltiples disciplinas con tarifas por turno, duraciones y capacidades diferenciadas desde un único panel.",
   },
   {
-    icon: LineChart,
-    titulo: "Sabe exactamente que te conviene",
-    descripcion: "Que cancha rinde mas, que horario llena primero, cuanto generas por mes. Todo en un panel, sin hojas de calculo.",
-  },
-  {
-    icon: Wallet,
-    titulo: "La plata llega antes que el jugador",
-    descripcion: "Cobro anticipado via MercadoPago. Si no pagan, no reservan. Los no-shows desaparecen.",
-  },
-  {
-    icon: Zap,
-    titulo: "Hoy lo configuras, manana ya cobras",
-    descripcion: "Carga tus canchas, pone los precios y arranca. Sin tecnico, sin contrato, sin vuelta.",
+    icon: UserCheck,
+    titulo: "Turnero táctil para tu mostrador",
+    descripcion: "Pantalla de recepción para empleados y cancheros: registrá asistencia y marcá no-shows con un solo toque desde cualquier tablet o celular.",
   },
   {
     icon: Users,
-    titulo: "Conoce a cada jugador de tu predio",
-    descripcion: "Historial completo por cliente: cuantas veces vino, si aparecio, que canchas elige. Datos que antes no tenias.",
+    titulo: "Score de confiabilidad del jugador",
+    descripcion: "Historial real por cliente con porcentaje de asistencia y conteo de faltas, para identificar jugadores cumplidores y evitar huecos vacíos.",
   },
   {
-    icon: Star,
-    titulo: "El primero que aparece en el mapa",
-    descripcion: "Tu complejo visible para miles de jugadores activos en tu zona antes de que busquen el de la competencia.",
+    icon: MessageCircle,
+    titulo: "Coordinación ágil por WhatsApp",
+    descripcion: "Cada reserva arma automáticamente el mensaje con cancha, fecha, horario y monto exacto para coordinar señas al instante sin tipeos manuales.",
+  },
+  {
+    icon: LineChart,
+    titulo: "Métricas de ingresos y horarios pico",
+    descripcion: "Gráficos de ingresos diarios, recaudación por cancha, horarios con mayor demanda y tasa de cancelaciones sin hojas de cálculo.",
+  },
+  {
+    icon: MapPin,
+    titulo: "Tu predio en el mapa interactivo",
+    descripcion: "Los jugadores de tu zona encuentran tu complejo por cercanía geográfica, ven tus fotos, horarios e instalaciones disponibles en tiempo real.",
   },
 ];
 
@@ -127,6 +131,7 @@ export default function HomePage() {
   const [distancia] = useState(5);
   const [capacidad, setCapacidad] = useState<string>("");
   const [fecha, setFecha] = useState(hoy);
+  const [deporte, setDeporte] = useState("");
 
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -152,8 +157,9 @@ export default function HomePage() {
     );
   }, []);
 
-  const buscar = useCallback(async () => {
+  const buscar = useCallback(async (deporteFiltro?: string) => {
     setCargando(true);
+    const dep = deporteFiltro !== undefined ? deporteFiltro : deporte;
     const params = new URLSearchParams({
       ...(fecha ? { fecha } : {}),
       ...(nombre ? { nombre } : {}),
@@ -161,6 +167,7 @@ export default function HomePage() {
       ...(ciudad && !userCoords ? { ciudad } : {}),
       ...(userCoords ? { lat: String(userCoords.lat), lng: String(userCoords.lng), distancia: String(distancia) } : {}),
       ...(capacidad ? { capacidad } : {}),
+      ...(dep ? { deporte: dep } : {}),
     });
     try {
       const res = await fetch(`/api/disponibilidad?${params}`);
@@ -171,7 +178,12 @@ export default function HomePage() {
     } finally {
       setCargando(false);
     }
-  }, [fecha, nombre, provincia, ciudad, distancia, userCoords, capacidad]);
+  }, [fecha, nombre, provincia, ciudad, distancia, userCoords, capacidad, deporte]);
+
+  const seleccionarDeporte = (depId: string) => {
+    setDeporte(depId);
+    buscar(depId);
+  };
 
   useEffect(() => {
     buscar();
@@ -198,9 +210,9 @@ export default function HomePage() {
         ══════════════════════════════════════════ */}
         <section className="w-full px-8 sm:px-12 lg:px-20 pt-32 pb-10 md:pt-44 md:pb-14 animate-fade-in">
           {/* Titulo alineado a la izquierda */}
-          <div className="max-w-4xl flex flex-col gap-1 md:gap-2 mb-10">
+          <div className="max-w-4xl flex flex-col gap-1 md:gap-2 mb-8">
             <span className="text-brand font-bold tracking-[0.25em] text-xs md:text-sm uppercase drop-shadow-md">
-              FUTBOL
+              FÚTBOL • PÁDEL • TENIS • BÁSQUET • VÓLEY
             </span>
             <h1 className="font-display text-[4rem] md:text-[6rem] lg:text-[7.5rem] text-[#F4F7F5] leading-[0.85] tracking-tight drop-shadow-2xl uppercase mt-2">
               La cancha<br />te espera
@@ -210,8 +222,31 @@ export default function HomePage() {
             </p>
           </div>
 
+          {/* Selector de Deportes */}
+          <div className="w-full max-w-6xl mx-auto mb-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {DEPORTES_FILTRO.map((item) => {
+                const isSelected = deporte === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => seleccionarDeporte(item.id)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold tracking-wide transition-all border shrink-0 cursor-pointer ${
+                      isSelected
+                        ? "bg-brand text-surface border-brand shadow-[0_0_15px_rgba(69,228,148,0.4)] scale-105"
+                        : "bg-[#0d1510]/80 text-white/75 border-white/10 hover:border-brand/40 hover:text-white"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Buscador horizontal centrado y con mayor presencia */}
-          <div className="w-full max-w-6xl mx-auto mt-2">
+          <div className="w-full max-w-6xl mx-auto">
             <div className="bg-[#0d1510]/92 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden">
               <div className="flex flex-col md:flex-row items-stretch p-2.5 sm:p-3 gap-0">
                 {/* Complejo */}
@@ -264,7 +299,7 @@ export default function HomePage() {
                 </div>
                 {/* Boton (manteniendo el mismo tamaño solicitado) */}
                 <div className="flex items-center justify-center px-3 py-2 md:py-0">
-                  <button onClick={buscar} disabled={cargando} aria-label="Buscar canchas disponibles" id="btn-buscar-canchas" className="whitespace-nowrap bg-brand hover:bg-brand-hover text-surface font-black text-sm px-6 py-3.5 rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(76,175,125,0.35)] hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-white focus:outline-none w-full md:w-auto justify-center">
+                  <button onClick={() => buscar()} disabled={cargando} aria-label="Buscar canchas disponibles" id="btn-buscar-canchas" className="whitespace-nowrap bg-brand hover:bg-brand-hover text-surface font-black text-sm px-6 py-3.5 rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(76,175,125,0.35)] hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-white focus:outline-none w-full md:w-auto justify-center">
                     {cargando ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Search className="w-4 h-4" aria-hidden="true" />}
                     Buscar canchas
                   </button>
@@ -331,12 +366,7 @@ export default function HomePage() {
                   /* ── GRID VERTICAL (3 canchas por fila máx) ── */
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                     {canchas.map((cancha) => {
-                      const tipoCancha =
-                        cancha.capacidad <= 10
-                          ? "Fútbol 5"
-                          : cancha.capacidad <= 14
-                          ? "Fútbol 7"
-                          : "Fútbol 11";
+                      const tipoCancha = getBadgeDeporte(cancha.deporte, cancha.capacidad);
                       const fotoPredio =
                         cancha.predio.imagenUrl ||
                         "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1200&auto=format&fit=crop";
@@ -419,12 +449,7 @@ export default function HomePage() {
                   /* ── LISTADO HORIZONTAL (< 3 canchas, una debajo de otra) ── */
                   <div className="flex flex-col gap-4">
                     {canchas.map((cancha) => {
-                      const tipoCancha =
-                        cancha.capacidad <= 10
-                          ? "Fútbol 5"
-                          : cancha.capacidad <= 14
-                          ? "Fútbol 7"
-                          : "Fútbol 11";
+                      const tipoCancha = getBadgeDeporte(cancha.deporte, cancha.capacidad);
                       const fotoPredio =
                         cancha.predio.imagenUrl ||
                         "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1200&auto=format&fit=crop";
@@ -534,7 +559,7 @@ export default function HomePage() {
                   Tenes un<br /><span className="text-brand">complejo deportivo?</span>
                 </h2>
                 <p className="text-white/60 text-base md:text-lg text-balance leading-relaxed max-w-xl">
-                  Para de perder plata con turnos sin cobrar y chats de WhatsApp que no terminan. PicaditoYa te da el sistema que necesitabas desde el primer dia.
+                  Centralizá tus canchas, horarios y reservas en una plataforma moderna creada para el día a día de los complejos deportivos en Argentina.
                 </p>
               </div>
               <div className="shrink-0 w-full lg:w-auto flex flex-col items-start lg:items-end gap-3">

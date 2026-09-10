@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { checkDisponibilidad } from "@/lib/disponibilidad";
 import { turnoSchema } from "@/lib/validations/turnos";
 import { sendPushToUser, formatearFechaAmigable } from "@/lib/push-service";
 
@@ -64,73 +63,92 @@ export async function POST(request: NextRequest) {
   const fechaDate = new Date(fecha);
 
   try {
-    // Verificar cancha y disponibilidad en paralelo para eliminar cascada
-    const [cancha, disponible] = await Promise.all([
-      prisma.cancha.findUnique({
+    const turno = await prisma.$transaction(async (tx) => {
+      // 1. Bloqueo de fila para serializar reservas simultáneas en la misma cancha
+      await tx.$executeRaw`SELECT id FROM canchas WHERE id = ${canchaId} FOR UPDATE`;
+
+      const cancha = await tx.cancha.findUnique({
         where: { id: canchaId },
         include: {
           predio: {
             include: { admin: { select: { fechaVencimientoSuscripcion: true, activo: true } } },
           },
         },
-      }),
-      checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin),
-    ]);
+      });
 
-    if (!cancha) {
-      return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
-    }
+      if (!cancha) {
+        throw new Error("CANCHA_NO_ENCONTRADA");
+      }
 
-    const hoy = new Date();
-    const adminVencido = cancha.predio.admin?.fechaVencimientoSuscripcion
-      ? new Date(cancha.predio.admin.fechaVencimientoSuscripcion) < hoy
-      : true;
+      const hoy = new Date();
+      const adminVencido = cancha.predio.admin?.fechaVencimientoSuscripcion
+        ? new Date(cancha.predio.admin.fechaVencimientoSuscripcion) < hoy
+        : true;
 
-    if (cancha.predio.estado !== "activo" || adminVencido || cancha.predio.admin?.activo === false) {
-      return NextResponse.json(
-        { error: "El predio no está disponible para reservas actualmente" },
-        { status: 403 }
-      );
-    }
+      if (cancha.predio.estado !== "activo" || adminVencido || cancha.predio.admin?.activo === false) {
+        throw new Error("PREDIO_NO_DISPONIBLE");
+      }
 
-    if (!disponible) {
-      return NextResponse.json(
-        { error: "La cancha ya tiene un turno reservado en ese horario" },
-        { status: 409 }
-      );
-    }
+      // 2. Verificar disponibilidad dentro de la transacción protegida
+      const turnosOcupados = await tx.turno.findMany({
+        where: {
+          canchaId,
+          fecha: { equals: fechaDate },
+          estado: { in: ["confirmado", "pendiente"] },
+        },
+        select: {
+          id: true,
+          horaInicio: true,
+          horaFin: true,
+        },
+      });
 
-    // Calcular precio proporcional a la duración en minutos
-    const [hIni, mIni] = horaInicio.split(":").map(Number);
-    const [hFin, mFin] = horaFin.split(":").map(Number);
-    const inicioMin = hIni * 60 + mIni;
-    let finMin = hFin * 60 + mFin;
-    if (finMin < inicioMin) finMin += 24 * 60;
-    const duracionMin = finMin - inicioMin;
-    const precioProporcional = duracionMin > 0
-      ? Math.round((cancha.precioTurno * duracionMin) / 60)
-      : cancha.precioTurno;
+      const [hIni, mIni] = horaInicio.split(":").map(Number);
+      const [hFin, mFin] = horaFin.split(":").map(Number);
+      const reqInicio = hIni * 60 + mIni;
+      let reqFin = hFin * 60 + mFin;
+      if (reqFin <= reqInicio) reqFin += 24 * 60;
 
-    // Crear el turno (con clienteId si hay sesión o nombre manual)
-    const turno = await prisma.turno.create({
-      data: {
-        canchaId,
-        clienteId: session?.user?.id || null,
-        nombreClienteManual: nombreCliente || (session?.user?.name ?? "Jugador"),
-        telefonoClienteManual: telefonoCliente || null,
-        fecha: fechaDate,
-        horaInicio,
-        horaFin,
-        estado: "pendiente",
-        precioAlMomentoReserva: precioProporcional,
-      },
-      include: {
-        cancha: {
-          include: {
-            predio: true,
+      const haySolapamiento = turnosOcupados.some((t) => {
+        const [tHIni, tMIni] = t.horaInicio.split(":").map(Number);
+        const [tHFin, tMFin] = t.horaFin.split(":").map(Number);
+        const tInicio = tHIni * 60 + tMIni;
+        let tFin = tHFin * 60 + tMFin;
+        if (tFin <= tInicio) tFin += 24 * 60;
+        return reqInicio < tFin && reqFin > tInicio;
+      });
+
+      if (haySolapamiento) {
+        throw new Error("TURNO_SOLAPADO");
+      }
+
+      // 3. Calcular precio proporcional a la duración en minutos
+      const duracionMin = reqFin - reqInicio;
+      const precioProporcional = duracionMin > 0
+        ? Math.round((cancha.precioTurno * duracionMin) / 60)
+        : cancha.precioTurno;
+
+      // 4. Crear el turno atómicamente
+      return tx.turno.create({
+        data: {
+          canchaId,
+          clienteId: session?.user?.id || null,
+          nombreClienteManual: nombreCliente || (session?.user?.name ?? "Jugador"),
+          telefonoClienteManual: telefonoCliente || null,
+          fecha: fechaDate,
+          horaInicio,
+          horaFin,
+          estado: "pendiente",
+          precioAlMomentoReserva: precioProporcional,
+        },
+        include: {
+          cancha: {
+            include: {
+              predio: true,
+            },
           },
         },
-      },
+      });
     });
 
     // Notificar al administrador del predio sobre la nueva solicitud de turno
@@ -148,6 +166,23 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ turno }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "CANCHA_NO_ENCONTRADA") {
+        return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
+      }
+      if (error.message === "PREDIO_NO_DISPONIBLE") {
+        return NextResponse.json(
+          { error: "El predio no está disponible para reservas actualmente" },
+          { status: 403 }
+        );
+      }
+      if (error.message === "TURNO_SOLAPADO") {
+        return NextResponse.json(
+          { error: "La cancha ya tiene un turno reservado en ese horario" },
+          { status: 409 }
+        );
+      }
+    }
     console.error("[POST /api/turnos]", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }

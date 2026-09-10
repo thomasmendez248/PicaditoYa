@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
   const busqueda = searchParams.get("busqueda");
   const fechaDesde = searchParams.get("fechaDesde");
   const fechaHasta = searchParams.get("fechaHasta");
+  const esFijo = searchParams.get("esFijo");
   const modoExplorador = searchParams.get("modoExplorador") === "true";
 
   const isSuperAdmin = session.user.rol === "super_admin";
@@ -119,6 +120,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Filtro de Turnos Fijos
+    if (esFijo === "true") {
+      where.esFijo = true;
+    }
+
     // Filtro de Búsqueda por cliente
     if (busqueda && busqueda.trim()) {
       const q = busqueda.trim();
@@ -139,6 +145,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             nombre: true,
+            deporte: true,
             capacidad: true,
             precioTurno: true,
             predio: {
@@ -204,20 +211,17 @@ export async function POST(request: NextRequest) {
       telefonoClienteManual,
       clienteId,
       estado,
+      esFijo,
+      repeticionesSemanas,
     } = parsed.data;
 
     const fechaDate = new Date(fecha);
-
     const isSuperAdmin = session.user.rol === "super_admin";
     
-    // Consultar cancha y disponibilidad en paralelo para eliminar cascada
-    const [cancha, disponible] = await Promise.all([
-      prisma.cancha.findUnique({
-        where: { id: canchaId },
-        include: { predio: true },
-      }),
-      checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin),
-    ]);
+    const cancha = await prisma.cancha.findUnique({
+      where: { id: canchaId },
+      include: { predio: true },
+    });
 
     if (!cancha) {
       return NextResponse.json({ error: "Cancha no encontrada" }, { status: 404 });
@@ -227,6 +231,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sin permisos para esta cancha" }, { status: 403 });
     }
 
+    // ─── CREACIÓN DE TURNO FIJO (RECURRENTE POR X SEMANAS) ───────────
+    if (esFijo) {
+      const cantidadSemanas = Math.min(Math.max(repeticionesSemanas || 4, 1), 52);
+      const grupoFijoId = `fijo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const turnosCreados: any[] = [];
+      const semanasConConflicto: string[] = [];
+
+      for (let i = 0; i < cantidadSemanas; i++) {
+        // Calcular fecha sumando semanas (i * 7 días)
+        const fechaOcurrencia = new Date(fechaDate);
+        fechaOcurrencia.setDate(fechaOcurrencia.getDate() + (i * 7));
+
+        const disponible = await checkDisponibilidad(canchaId, fechaOcurrencia, horaInicio, horaFin);
+        if (!disponible) {
+          semanasConConflicto.push(fechaOcurrencia.toISOString().split("T")[0]);
+          continue;
+        }
+
+        const nuevoTurno = await prisma.turno.create({
+          data: {
+            canchaId,
+            fecha: fechaOcurrencia,
+            horaInicio,
+            horaFin,
+            estado: estado ?? "confirmado",
+            clienteId: clienteId || null,
+            nombreClienteManual: nombreClienteManual || null,
+            telefonoClienteManual: telefonoClienteManual || null,
+            precioAlMomentoReserva: parsed.data.precioAlMomentoReserva ?? cancha.precioTurno,
+            esFijo: true,
+            grupoFijoId,
+          },
+          include: {
+            cliente: {
+              select: { id: true, nombre: true, apellido: true, email: true, telefono: true },
+            },
+          },
+        });
+
+        turnosCreados.push(nuevoTurno);
+      }
+
+      if (turnosCreados.length === 0) {
+        return NextResponse.json(
+          { error: "No se pudo crear ningún turno fijo: todos los horarios semanales están ocupados" },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          turno: turnosCreados[0],
+          turnosCreados,
+          totalCreados: turnosCreados.length,
+          semanasConConflicto,
+          mensaje: `Se crearon ${turnosCreados.length} turnos fijos semanales.${semanasConConflicto.length > 0 ? ` Semanas omitidas por ocupación: ${semanasConConflicto.join(", ")}` : ""}`,
+        },
+        { status: 201 }
+      );
+    }
+
+    // ─── CREACIÓN DE TURNO INDIVIDUAL ─────────────────────────────────
+    const disponible = await checkDisponibilidad(canchaId, fechaDate, horaInicio, horaFin);
     if (!disponible) {
       return NextResponse.json(
         { error: "El horario seleccionado ya se encuentra ocupado por otro turno" },
@@ -245,6 +312,8 @@ export async function POST(request: NextRequest) {
         nombreClienteManual: nombreClienteManual || null,
         telefonoClienteManual: telefonoClienteManual || null,
         precioAlMomentoReserva: parsed.data.precioAlMomentoReserva ?? cancha.precioTurno,
+        esFijo: false,
+        grupoFijoId: null,
       },
       include: {
         cliente: {

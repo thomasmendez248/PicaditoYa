@@ -48,6 +48,22 @@ export async function PUT(
 
     const isCancelacion = parsed.data.estado === "cancelado_a_tiempo" || parsed.data.estado === "cancelado_tarde";
     const fueAprobado = parsed.data.estado === "confirmado" && turno.estado === "pendiente";
+    const cancelarSerie = body.cancelarSerie === true && !!turno.grupoFijoId;
+
+    if (cancelarSerie) {
+      await prisma.turno.updateMany({
+        where: {
+          grupoFijoId: turno.grupoFijoId,
+          fecha: { gte: turno.fecha },
+        },
+        data: {
+          estado: parsed.data.estado,
+          canceladoEn: isCancelacion ? new Date() : null,
+        },
+      });
+
+      return NextResponse.json({ message: "Serie recurrente de turnos actualizada con éxito" });
+    }
 
     const turnoActualizado = await prisma.turno.update({
       where: { id },
@@ -76,7 +92,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -105,6 +121,19 @@ export async function DELETE(
 
     if (!isSuperAdmin && turno.cancha.predio.adminId !== session.user.id) {
       return NextResponse.json({ error: "Sin permisos sobre este turno" }, { status: 403 });
+    }
+
+    const eliminarSerie = request.nextUrl.searchParams.get("eliminarSerie") === "true";
+
+    if (eliminarSerie && turno.grupoFijoId) {
+      const res = await prisma.turno.deleteMany({
+        where: {
+          grupoFijoId: turno.grupoFijoId,
+          fecha: { gte: turno.fecha },
+        },
+      });
+
+      return NextResponse.json({ message: `Se eliminaron ${res.count} turnos fijos de la serie` });
     }
 
     await prisma.turno.delete({

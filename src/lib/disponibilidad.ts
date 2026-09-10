@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import type { EstadoTurno } from "@prisma/client";
 
 /**
  * Normaliza un texto para búsquedas: elimina acentos y pasa a minúsculas.
@@ -39,7 +39,7 @@ export async function checkDisponibilidad(
       fecha: {
         equals: fecha,
       },
-      estado: { in: ["confirmado", "pendiente"] as any },
+      estado: { in: ["confirmado", "pendiente"] as EstadoTurno[] },
       ...(excludeTurnoId ? { id: { not: excludeTurnoId } } : {}),
     },
     select: {
@@ -94,7 +94,8 @@ export async function getCanchasDisponibles(
   lngUsuario?: number,
   distanciaMaxKm?: number,
   capacidad?: number,
-  provincia?: string
+  provincia?: string,
+  deporte?: string
 ) {
   const ciudadLimpia = ciudad?.trim() || "";
   const provinciaLimpia = provincia?.trim() || "";
@@ -106,7 +107,7 @@ export async function getCanchasDisponibles(
     const turnosFecha = await prisma.turno.findMany({
       where: {
         fecha: { equals: fecha },
-        estado: { in: ["confirmado", "pendiente"] as any },
+        estado: { in: ["confirmado", "pendiente"] as EstadoTurno[] },
       },
       select: { canchaId: true, horaInicio: true, horaFin: true },
     });
@@ -327,6 +328,7 @@ export async function getCanchasDisponibles(
             }
         : {}),
       ...(capacidad ? { capacidad } : {}),
+      ...(deporte && deporte !== "todos" ? { deporte } : {}),
     },
     include: {
       predio: {
@@ -337,26 +339,13 @@ export async function getCanchasDisponibles(
           latitud: true,
           longitud: true,
           telefono: true,
+          imagenUrl: true,
         },
       },
     },
     orderBy: [{ predio: { nombre: "asc" } }, { nombre: "asc" }],
   });
 
-  if (canchas.length === 0) return [];
-
-  const predioIds = Array.from(new Set(canchas.map((c) => c.predio.id)));
-  const fotosRaw = await prisma.$queryRaw<{ id: string; imagen_url: string | null }[]>`
-    SELECT id, imagen_url FROM predios WHERE id IN (${Prisma.join(predioIds)})
-  `;
-  const fotosMap = new Map(fotosRaw.map((f) => [f.id, f.imagen_url]));
-
-  return canchas.map((cancha) => ({
-    ...cancha,
-    predio: {
-      ...cancha.predio,
-      imagenUrl: fotosMap.get(cancha.predio.id) ?? null,
-    },
-  }));
+  return canchas;
 }
 

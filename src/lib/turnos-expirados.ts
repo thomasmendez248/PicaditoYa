@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getFechaHoyArgentina, getHoraActualArgentina } from "@/lib/date-utils";
 
 /**
  * Cancela automáticamente todos los turnos con estado "pendiente"
@@ -10,19 +11,9 @@ import { prisma } from "@/lib/prisma";
 export async function cancelarTurnosPendientesVencidos(canchaIds?: string[]): Promise<number> {
   try {
     // Obtener fecha y hora exacta en zona horaria de Argentina (UTC-3)
-    const ahoraArgentina = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" })
-    );
-
-    const anio = ahoraArgentina.getFullYear();
-    const mes = String(ahoraArgentina.getMonth() + 1).padStart(2, "0");
-    const dia = String(ahoraArgentina.getDate()).padStart(2, "0");
-    const hoyStr = `${anio}-${mes}-${dia}`;
+    const hoyStr = getFechaHoyArgentina();
     const hoyDate = new Date(hoyStr);
-
-    const horaActual = `${String(ahoraArgentina.getHours()).padStart(2, "0")}:${String(
-      ahoraArgentina.getMinutes()
-    ).padStart(2, "0")}`;
+    const horaActual = getHoraActualArgentina();
 
     const whereBase: Record<string, unknown> = {
       estado: "pendiente",

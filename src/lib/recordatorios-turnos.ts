@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push-service";
+import { getFechaHoyArgentina, ZONA_HORARIA_ARGENTINA } from "@/lib/date-utils";
 
 /**
- * Busca todos los turnos confirmados para el día de hoy que comienzan en ~30 minutos
- * y envía una notificación Web Push de recordatorio al cliente correspondiente.
- * 
+ * Revisa todos los turnos del día de hoy y envía recordatorio Push (30 minutos antes)
+ * a los clientes que tengan un turno en estado "confirmado".
+ *
  * Marca `notificacion30MinEnviada = true` para evitar duplicados.
- * 
+ *
  * @returns Cantidad de recordatorios enviados exitosamente
  */
 export async function verificarYEnviarRecordatorios30Min(): Promise<{
@@ -16,20 +17,16 @@ export async function verificarYEnviarRecordatorios30Min(): Promise<{
   try {
     // 1. Obtener fecha y hora actual en zona horaria de Argentina (UTC-3)
     const ahoraArgentina = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" })
+      new Date().toLocaleString("en-US", { timeZone: ZONA_HORARIA_ARGENTINA })
     );
 
-    const anio = ahoraArgentina.getFullYear();
-    const mes = String(ahoraArgentina.getMonth() + 1).padStart(2, "0");
-    const dia = String(ahoraArgentina.getDate()).padStart(2, "0");
-    const hoyStr = `${anio}-${mes}-${dia}`;
+    const hoyStr = getFechaHoyArgentina();
     const hoyDate = new Date(hoyStr);
 
     const minutosActuales = ahoraArgentina.getHours() * 60 + ahoraArgentina.getMinutes();
 
     // 2. Buscar turnos confirmados de hoy que no hayan recibido el recordatorio de 30 min
-    const turnoDelegate = (prisma as any).turno;
-    const turnosHoy = await turnoDelegate.findMany({
+    const turnosHoy = await prisma.turno.findMany({
       where: {
         fecha: { equals: hoyDate },
         estado: "confirmado",
@@ -87,7 +84,7 @@ export async function verificarYEnviarRecordatorios30Min(): Promise<{
 
     // 3. Actualizar la base de datos marcando notificacion30MinEnviada = true
     if (turnosAMarcar.length > 0) {
-      await turnoDelegate.updateMany({
+      await prisma.turno.updateMany({
         where: {
           id: { in: turnosAMarcar },
         },

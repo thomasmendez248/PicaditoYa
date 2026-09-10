@@ -16,10 +16,12 @@ import {
   ShieldCheck,
   Calendar,
 } from "lucide-react";
+import { getBadgeDeporte } from "@/lib/sports";
 
 type Cancha = {
   id: string;
   nombre: string;
+  deporte?: string;
   capacidad: number;
   precioTurno: number;
   duracionTurnoMinutos: number;
@@ -152,12 +154,7 @@ export default function PredioDetalleClient({ predio }: { predio: Predio }) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {predio.canchas.map((cancha) => {
-                  const tipoCancha =
-                    cancha.capacidad <= 10
-                      ? "Fútbol 5"
-                      : cancha.capacidad <= 14
-                      ? "Fútbol 7"
-                      : "Fútbol 11";
+                  const tipoCancha = getBadgeDeporte(cancha.deporte, cancha.capacidad);
 
                   return (
                     <div

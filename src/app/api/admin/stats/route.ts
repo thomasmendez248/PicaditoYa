@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
           estado: { notIn: ["cancelado_a_tiempo", "cancelado_tarde"] },
         },
         include: {
-          cancha: { select: { nombre: true } },
+          cancha: { select: { nombre: true, deporte: true } },
           cliente: { select: { nombre: true, apellido: true, telefono: true, email: true } },
         },
         orderBy: { horaInicio: "asc" },
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
           estado: "pendiente",
         },
         include: {
-          cancha: { select: { nombre: true } },
+          cancha: { select: { nombre: true, deporte: true } },
           cliente: { select: { nombre: true, apellido: true, telefono: true, email: true } },
         },
         orderBy: [{ fecha: "asc" }, { horaInicio: "asc" }],

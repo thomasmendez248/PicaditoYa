@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Bebas_Neue } from "next/font/google";
 import SessionProvider from "@/components/providers/SessionProvider";
 import "./globals.css";
@@ -16,11 +16,27 @@ const bebas = Bebas_Neue({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#45e494",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "PicaditoYa — Reservá tu cancha online",
   description:
-    "Encontrá y reservá canchas deportivas cerca tuyo. Disponibilidad en tiempo real, sin llamadas, sin complicaciones.",
-  keywords: ["reservar cancha", "fútbol 5", "turnos deportivos", "picadito", "Argentina"],
+    "Encontrá y reservá canchas de fútbol, pádel, tenis, básquet y vóley en tiempo real en toda Argentina.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "PicaditoYa",
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon.svg",
+  },
+  keywords: ["reservar cancha", "fútbol", "pádel", "tenis", "básquet", "vóley", "turnos deportivos", "picadito", "Argentina"],
   openGraph: {
     title: "PicaditoYa — Reservá tu cancha online",
     description: "Encontrá y reservá canchas deportivas cerca tuyo en segundos.",

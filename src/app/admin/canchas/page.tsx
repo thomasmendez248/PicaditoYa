@@ -17,6 +17,7 @@ import { useAdmin } from "@/components/admin/AdminContext";
 import CanchaModal, { CanchaData } from "@/components/admin/CanchaModal";
 import TurneroVisual from "@/components/admin/TurneroVisual";
 import { format } from "date-fns";
+import { getDeporteInfo } from "@/lib/sports";
 
 export default function AdminCanchasPage() {
   const { selectedPredio, selectedPredioId } = useAdmin();
@@ -155,7 +156,14 @@ export default function AdminCanchasPage() {
                       <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-transform ${isSelected ? "bg-brand text-surface shadow-sm" : "bg-white/5 text-brand border border-white/10"}`}>
                         <CircleDot className="w-5 h-5" />
                       </div>
-                      <h3 className="font-bold text-white text-lg truncate">{c.nombre}</h3>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-bold text-white text-lg truncate">{c.nombre}</h3>
+                        </div>
+                        <span className="text-[10px] font-bold text-brand bg-brand/10 border border-brand/20 px-2.5 py-0.5 rounded-full inline-block mt-0.5">
+                          {getDeporteInfo(c.deporte).nombre}
+                        </span>
+                      </div>
                     </div>
 
                     <button

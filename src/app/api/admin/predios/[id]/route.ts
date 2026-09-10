@@ -16,20 +16,15 @@ export async function GET(
 
   const isSuperAdmin = session.user.rol === "super_admin";
 
-  const [predio, fotoRaw] = await Promise.all([
-    prisma.predio.findUnique({
-      where: { id },
-      include: {
-        canchas: true,
-        _count: {
-          select: { canchas: true },
-        },
+  const predio = await prisma.predio.findUnique({
+    where: { id },
+    include: {
+      canchas: true,
+      _count: {
+        select: { canchas: true },
       },
-    }),
-    prisma.$queryRaw<{ imagen_url: string | null }[]>`
-      SELECT imagen_url FROM predios WHERE id = ${id} LIMIT 1
-    `,
-  ]);
+    },
+  });
 
   if (!predio) {
     return NextResponse.json({ error: "Predio no encontrado" }, { status: 404 });
@@ -39,12 +34,7 @@ export async function GET(
     return NextResponse.json({ error: "No tenés permiso para ver este predio" }, { status: 403 });
   }
 
-  return NextResponse.json({
-    predio: {
-      ...predio,
-      imagenUrl: fotoRaw[0]?.imagen_url ?? null,
-    },
-  });
+  return NextResponse.json({ predio });
 }
 
 export async function PUT(
@@ -90,19 +80,11 @@ export async function PUT(
       where: { id },
       data: {
         ...predioData,
+        ...(imagenUrl !== undefined ? { imagenUrl: imagenUrl || null } : {}),
       },
     });
 
-    if (imagenUrl !== undefined) {
-      await prisma.$executeRaw`UPDATE predios SET imagen_url = ${imagenUrl} WHERE id = ${id}`;
-    }
-
-    return NextResponse.json({
-      predio: {
-        ...predioActualizado,
-        imagenUrl: imagenUrl ?? null,
-      },
-    });
+    return NextResponse.json({ predio: predioActualizado });
   } catch (error) {
     console.error("[PUT /api/admin/predios/[id]]", error);
     return NextResponse.json({ error: "Error al actualizar el predio" }, { status: 500 });

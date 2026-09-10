@@ -18,6 +18,7 @@ import {
   Check,
   Ban,
   MessageCircle,
+  Repeat,
 } from "lucide-react";
 
 export type TurnoItem = {
@@ -31,6 +32,8 @@ export type TurnoItem = {
   horaFin: string;
   estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show";
   precioAlMomentoReserva: number;
+  esFijo?: boolean;
+  grupoFijoId?: string | null;
   cliente?: {
     id: string;
     nombre: string;
@@ -77,6 +80,8 @@ export default function TurneroVisual({
   const [horaFin, setHoraFin] = useState("19:00");
   const [estadoTurno, setEstadoTurno] = useState<"confirmado" | "pendiente">("confirmado");
   const [precio, setPrecio] = useState(cancha.precioTurno);
+  const [esFijo, setEsFijo] = useState(false);
+  const [repeticionesSemanas, setRepeticionesSemanas] = useState(4);
   const [guardando, setGuardando] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -176,11 +181,13 @@ export default function TurneroVisual({
     setClienteId("");
     setTipoCliente("manual");
     setEstadoTurno("confirmado");
+    setEsFijo(false);
+    setRepeticionesSemanas(4);
     setFormError(null);
     setModalNuevoOpen(true);
   };
 
-  // Crear turno manual
+  // Crear turno manual o recurrente
   const handleCrearTurno = async (e: React.FormEvent) => {
     e.preventDefault();
     setGuardando(true);
@@ -197,6 +204,8 @@ export default function TurneroVisual({
         clienteId: tipoCliente === "registrado" ? clienteId : undefined,
         estado: estadoTurno,
         precioAlMomentoReserva: Number(precio),
+        esFijo,
+        repeticionesSemanas: esFijo ? Number(repeticionesSemanas) : undefined,
       };
 
       const res = await fetch("/api/admin/turnos", {
@@ -210,6 +219,12 @@ export default function TurneroVisual({
         throw new Error(data.error || "No se pudo agendar el turno");
       }
 
+      if (data.conflictos && data.conflictos.length > 0) {
+        alert(
+          `Turno fijo agendado con éxito para ${data.turnosCreados} fechas.\n\nAviso: Hubo solapamiento en las siguientes fechas ya ocupadas: ${data.conflictos.join(", ")}`
+        );
+      }
+
       await fetchTurnos();
       setModalNuevoOpen(false);
     } catch (err: any) {
@@ -219,15 +234,15 @@ export default function TurneroVisual({
     }
   };
 
-  // Cambiar estado de turno
-  const handleCambiarEstado = async (nuevoEstado: string) => {
+  // Cambiar estado de turno (individual o toda la serie)
+  const handleCambiarEstado = async (nuevoEstado: string, cancelarSerie: boolean = false) => {
     if (!turnoSeleccionado) return;
     setGuardando(true);
     try {
       const res = await fetch(`/api/admin/turnos/${turnoSeleccionado.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: nuevoEstado }),
+        body: JSON.stringify({ estado: nuevoEstado, cancelarSerie }),
       });
 
       if (!res.ok) throw new Error("Error al actualizar estado");
@@ -240,17 +255,23 @@ export default function TurneroVisual({
     }
   };
 
-  // Eliminar turno
-  const handleEliminarTurno = async () => {
+  // Eliminar turno (individual o toda la serie)
+  const handleEliminarTurno = async (eliminarSerie: boolean = false) => {
     if (!turnoSeleccionado) return;
-    const confirm = window.confirm("¿Eliminar este turno y liberar el horario?");
+    const mensaje = eliminarSerie
+      ? "¿Eliminar y liberar toda la serie fija de turnos (esta fecha y todas las futuras)?"
+      : "¿Eliminar este turno y liberar el horario?";
+    const confirm = window.confirm(mensaje);
     if (!confirm) return;
 
     setGuardando(true);
     try {
-      const res = await fetch(`/api/admin/turnos/${turnoSeleccionado.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/admin/turnos/${turnoSeleccionado.id}${eliminarSerie ? "?eliminarSerie=true" : ""}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!res.ok) throw new Error("Error al eliminar turno");
       await fetchTurnos();
@@ -378,9 +399,20 @@ export default function TurneroVisual({
                 >
                   {/* Header del bloque: Hora y Badge de estado */}
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-sm text-white">
-                      {slotTime}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-sm text-white">
+                        {slotTime}
+                      </span>
+                      {turno?.esFijo && (
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-500/40"
+                          title="Turno Fijo Semanal"
+                        >
+                          <Repeat className="w-2.5 h-2.5" />
+                          Fijo
+                        </span>
+                      )}
+                    </div>
 
                     {isConfirmado && (
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" title="Confirmado" />
@@ -611,6 +643,51 @@ export default function TurneroVisual({
                 </div>
               </div>
 
+              {/* Opción de Turno Fijo Semanal (Recurrente) */}
+              <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300">
+                      <Repeat className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">Turno Fijo Semanal</span>
+                      <span className="text-[10px] text-white/50 block">Reservar el mismo día y hora todas las semanas</span>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={esFijo}
+                      onChange={(e) => setEsFijo(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                  </label>
+                </div>
+
+                {esFijo && (
+                  <div className="pt-2 border-t border-indigo-500/20 animate-fade-in space-y-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+                      Duración de la serie:
+                    </label>
+                    <select
+                      value={repeticionesSemanas}
+                      onChange={(e) => setRepeticionesSemanas(Number(e.target.value))}
+                      className="w-full bg-white/5 border border-indigo-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer"
+                    >
+                      <option value={4} className="text-black">4 semanas (1 mes)</option>
+                      <option value={8} className="text-black">8 semanas (2 meses)</option>
+                      <option value={12} className="text-black">12 semanas (3 meses)</option>
+                      <option value={24} className="text-black">24 semanas (6 meses)</option>
+                    </select>
+                    <p className="text-[10px] text-indigo-200/70">
+                      Se agendarán {repeticionesSemanas} turnos con el mismo cliente e importe. Las fechas ocupadas previamente serán omitidas alertándote de los conflictos.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 pt-6 border-t border-white/10 mt-6">
                 <button
                   type="button"
@@ -705,6 +782,17 @@ export default function TurneroVisual({
                   </span>
                 </div>
 
+                {turnoSeleccionado.esFijo && (
+                  <div className="flex items-center justify-between py-1 border-t border-white/5">
+                    <span className="text-xs text-indigo-300 font-bold flex items-center gap-1">
+                      <Repeat className="w-3.5 h-3.5" /> Modalidad:
+                    </span>
+                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                      Turno Fijo Semanal
+                    </span>
+                  </div>
+                )}
+
                 {/* Botón WhatsApp si tiene teléfono */}
                 {(turnoSeleccionado.telefonoClienteManual || turnoSeleccionado.cliente?.telefono) && (
                   <div className="pt-2 border-t border-white/5">
@@ -750,18 +838,52 @@ export default function TurneroVisual({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      if (confirm("¿Estás seguro de que deseas cancelar este turno confirmado?")) {
-                        handleCambiarEstado("cancelado_tarde");
-                      }
-                    }}
-                    disabled={guardando}
-                    className="w-full py-2.5 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 font-black text-xs flex items-center justify-center gap-2 transition-all"
-                  >
-                    <Ban className="w-4 h-4" />
-                    Cancelar Turno
-                  </button>
+                  {turnoSeleccionado.esFijo && turnoSeleccionado.grupoFijoId ? (
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold text-red-400 uppercase tracking-wider block">
+                        Opciones de Cancelación:
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            if (confirm("¿Cancelar solo el turno de esta fecha? Las próximas semanas seguirán reservadas.")) {
+                              handleCambiarEstado("cancelado_tarde", false);
+                            }
+                          }}
+                          disabled={guardando}
+                          className="py-2.5 px-3 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                          Cancelar solo hoy
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm("¿Cancelar toda la serie fija? Se cancelará este turno y todas las semanas futuras.")) {
+                              handleCambiarEstado("cancelado_tarde", true);
+                            }
+                          }}
+                          disabled={guardando}
+                          className="py-2.5 px-3 rounded-2xl bg-red-500/25 hover:bg-red-500/35 border border-red-500/40 text-red-200 font-black text-xs flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Repeat className="w-3.5 h-3.5" />
+                          Cancelar toda la serie
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (confirm("¿Estás seguro de que deseas cancelar este turno confirmado?")) {
+                          handleCambiarEstado("cancelado_tarde", false);
+                        }
+                      }}
+                      disabled={guardando}
+                      className="w-full py-2.5 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 font-black text-xs flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Ban className="w-4 h-4" />
+                      Cancelar Turno
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -788,16 +910,41 @@ export default function TurneroVisual({
               </div>
 
               {/* Eliminar / Cancelar Turno */}
-              <div className="pt-5 border-t border-white/10 flex justify-between items-center">
-                <button
-                  type="button"
-                  onClick={handleEliminarTurno}
-                  disabled={guardando}
-                  className="text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-4 py-2.5 rounded-full transition-colors flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Liberar Turno
-                </button>
+              <div className="pt-5 border-t border-white/10 flex flex-wrap justify-between items-center gap-2">
+                {turnoSeleccionado.esFijo && turnoSeleccionado.grupoFijoId ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEliminarTurno(false)}
+                      disabled={guardando}
+                      className="text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-2 rounded-full transition-colors flex items-center gap-1"
+                      title="Liberar solo este turno de la fecha"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Liberar hoy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEliminarTurno(true)}
+                      disabled={guardando}
+                      className="text-xs font-bold text-red-300 hover:text-red-200 hover:bg-red-500/20 px-3 py-2 rounded-full transition-colors flex items-center gap-1"
+                      title="Liberar todas las semanas futuras de este turno fijo"
+                    >
+                      <Repeat className="w-3.5 h-3.5" />
+                      Liberar serie completa
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleEliminarTurno(false)}
+                    disabled={guardando}
+                    className="text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-4 py-2.5 rounded-full transition-colors flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Liberar Turno
+                  </button>
+                )}
 
                 <button
                   type="button"

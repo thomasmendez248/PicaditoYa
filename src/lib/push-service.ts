@@ -54,11 +54,14 @@ export async function sendPushToUser(
     }
 
     // 1. Obtener suscripciones activas del usuario
-    const pushSubDelegate = (prisma as any).pushSubscription;
-    const subscriptions: Array<{ endpoint: string; p256dh: string; auth: string }> =
-      await pushSubDelegate.findMany({
-        where: { userId },
-      });
+    const subscriptions = await prisma.pushSubscription.findMany({
+      where: { userId },
+      select: {
+        endpoint: true,
+        p256dh: true,
+        auth: true,
+      },
+    });
 
     if (subscriptions.length === 0) {
       return { success: true, sent: 0, failed: 0 };
@@ -82,7 +85,7 @@ export async function sendPushToUser(
         Authorization: `Bearer ${supabaseServiceRoleKey}`,
       },
       body: JSON.stringify({
-        subscriptions: subscriptions.map((sub: { endpoint: string; p256dh: string; auth: string }) => ({
+        subscriptions: subscriptions.map((sub) => ({
           endpoint: sub.endpoint,
           p256dh: sub.p256dh,
           auth: sub.auth,
@@ -91,8 +94,8 @@ export async function sendPushToUser(
           title: payload.title,
           body: payload.body,
           url: payload.url || "/",
-          icon: payload.icon || "/icons/icon-192x192.png",
-          badge: payload.badge || "/icons/badge-72x72.png",
+          icon: payload.icon || "/favicon.ico",
+          badge: payload.badge || "/favicon.ico",
           tag: payload.tag,
           requireInteraction: payload.requireInteraction,
           data: payload.data,
@@ -111,7 +114,7 @@ export async function sendPushToUser(
 
     // 3. Limpieza de endpoints inválidos/desuscritos
     if (result.invalidEndpoints && Array.isArray(result.invalidEndpoints) && result.invalidEndpoints.length > 0) {
-      await pushSubDelegate.deleteMany({
+      await prisma.pushSubscription.deleteMany({
         where: {
           endpoint: { in: result.invalidEndpoints },
           userId,

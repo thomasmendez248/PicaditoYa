@@ -17,10 +17,12 @@ import {
   ExternalLink,
   Edit2,
   User,
+  Clock,
 } from "lucide-react";
 import { useAdmin, PredioAdmin } from "./AdminContext";
 import PredioModal from "./PredioModal";
 import RadialNavMenu from "./RadialNavMenu";
+import BotonPushAdmin from "@/components/push/BotonPushAdmin";
 
 export default function AdminHeader() {
   const pathname = usePathname();
@@ -33,6 +35,7 @@ export default function AdminHeader() {
     { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { label: "Canchas", href: "/admin/canchas", icon: CircleDot },
     { label: "Turnos", href: "/admin/turnos", icon: CalendarDays },
+    { label: "Turnero", href: "/empleado/turnero", icon: Clock },
   ];
 
   return (
@@ -157,7 +160,9 @@ export default function AdminHeader() {
             </div>
 
             {/* Acciones derecha */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <BotonPushAdmin variante="header" />
+
               <Link
                 href="/admin/perfil"
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/5 hover:bg-white/10 hover:border-brand/40 border border-white/10 text-xs font-bold text-white/80 hover:text-white transition-all"

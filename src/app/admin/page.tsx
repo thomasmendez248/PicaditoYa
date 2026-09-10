@@ -28,9 +28,12 @@ import {
   Users,
   Flame,
   Award,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useAdmin } from "@/components/admin/AdminContext";
 import PredioModal from "@/components/admin/PredioModal";
+import BotonPushAdmin from "@/components/push/BotonPushAdmin";
+import { exportarTurnosAExcel } from "@/lib/exportar-excel";
 
 export type TurnoStatsItem = {
   id: string;
@@ -39,7 +42,9 @@ export type TurnoStatsItem = {
   horaFin: string;
   estado: string;
   precioAlMomentoReserva: number;
-  cancha: { nombre: string };
+  esFijo?: boolean;
+  grupoFijoId?: string | null;
+  cancha: { nombre: string; deporte?: string };
   cliente?: { nombre: string; apellido?: string | null; telefono: string | null; email?: string | null } | null;
   nombreClienteManual?: string | null;
   telefonoClienteManual?: string | null;
@@ -138,6 +143,32 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Marcar asistencia formal ("asistió" / "no-show") actualizando puntaje del cliente
+  const handleMarcarAsistencia = async (turnoId: string, asistio: boolean) => {
+    setProcesandoId(turnoId);
+    try {
+      const res = await fetch(`/api/turnos/${turnoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "marcar_asistencia", asistio }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "No se pudo registrar la asistencia");
+      }
+
+      await fetchStats();
+      if (turnoDetalle && turnoDetalle.id === turnoId) {
+        setTurnoDetalle(null);
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al registrar asistencia");
+    } finally {
+      setProcesandoId(null);
+    }
+  };
+
   // Eliminar y liberar turno
   const handleEliminarTurno = async (turnoId: string) => {
     if (!confirm("¿Estás seguro de que querés eliminar y liberar completamente este turno?")) return;
@@ -161,6 +192,20 @@ export default function AdminDashboardPage() {
     } finally {
       setProcesandoId(null);
     }
+  };
+
+  const handleExportarExcelHoy = () => {
+    if (!stats?.proximosTurnosHoy || stats.proximosTurnosHoy.length === 0) {
+      alert("No hay turnos registrados hoy para exportar.");
+      return;
+    }
+    exportarTurnosAExcel(
+      stats.proximosTurnosHoy.map((t) => ({
+        ...t,
+        fecha: t.fecha ? String(t.fecha) : new Date().toISOString(),
+      })),
+      `Cierre_Diario_${selectedPredio?.nombre || "Predio"}`
+    );
   };
 
   // Si no tiene predios cargados
@@ -218,6 +263,15 @@ export default function AdminDashboardPage() {
 
         <div className="flex flex-wrap items-center gap-3 relative z-10">
           <button
+            onClick={handleExportarExcelHoy}
+            className="px-5 py-3 rounded-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 hover:text-white font-bold text-sm flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+            title="Exportar a Excel los turnos y caja de hoy"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            Descargar Cierre Excel
+          </button>
+
+          <button
             onClick={() => setModalPredioEditarOpen(true)}
             className="px-5 py-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm flex items-center gap-2 transition-all hover:border-brand/40"
             title="Editar nombre, dirección y ubicación"
@@ -236,6 +290,9 @@ export default function AdminDashboardPage() {
           predio={selectedPredio}
         />
       )}
+
+      {/* ── BANNER / CONTROL DE NOTIFICACIONES PUSH EN VIVO ── */}
+      <BotonPushAdmin variante="card" />
 
       {/* ── ALERTA DE TURNOS PENDIENTES DE CONFIRMACIÓN ── */}
       {stats?.turnosPendientes && stats.turnosPendientes.length > 0 && (
@@ -931,20 +988,41 @@ export default function AdminDashboardPage() {
                             Denegar
                           </button>
                         </>
-                      ) : isConfirmado ? (
-                        <button
-                          onClick={() => {
-                            if (confirm(`¿Estás seguro de que querés cancelar el turno confirmado de ${cliente}?`)) {
-                              handleActualizarEstado(t.id, "cancelado_tarde");
-                            }
-                          }}
-                          disabled={isProcesando}
-                          className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all"
-                          title="Cancelar turno confirmado"
-                        >
-                          <Ban className="w-3.5 h-3.5" />
-                          Cancelar Turno
-                        </button>
+                      ) : t.estado === "confirmado" ? (
+                        <>
+                          <button
+                            onClick={() => handleMarcarAsistencia(t.id, true)}
+                            disabled={isProcesando}
+                            className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-surface font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.3)] transition-all hover:scale-105"
+                            title="Marcar que el cliente asistió al turno"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            Asistió
+                          </button>
+
+                          <button
+                            onClick={() => handleMarcarAsistencia(t.id, false)}
+                            disabled={isProcesando}
+                            className="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all"
+                            title="Marcar No-Show (cliente ausente)"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            No-Show
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              if (confirm(`¿Estás seguro de que querés cancelar el turno confirmado de ${cliente}?`)) {
+                                handleActualizarEstado(t.id, "cancelado_tarde");
+                              }
+                            }}
+                            disabled={isProcesando}
+                            className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-300 border border-white/10 transition-colors"
+                            title="Cancelar turno confirmado"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                          </button>
+                        </>
                       ) : null}
 
                       {/* Botón Ver Detalles */}

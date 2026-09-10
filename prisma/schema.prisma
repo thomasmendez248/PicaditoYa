@@ -213,6 +213,7 @@ model Cancha {
   id                       String   @id @default(cuid())
   predioId                 String   @map("predio_id")
   nombre                   String
+  deporte                  String   @default("futbol")
   capacidad                Int      @default(10)
   precioTurno              Float    @map("precio_turno")
   duracionTurnoMinutos     Int      @default(60) @map("duracion_turno_minutos")
@@ -232,6 +233,7 @@ model Cancha {
 
   @@index([predioId])
   @@index([predioId, capacidad])
+  @@index([deporte])
   @@map("canchas")
 }
 
@@ -248,6 +250,8 @@ model Turno {
   precioAlMomentoReserva Float       @map("precio_al_momento_reserva")
   canceladoEn            DateTime?   @map("cancelado_en")
   notificacion30MinEnviada Boolean   @default(false) @map("notificacion_30min_enviada")
+  esFijo                 Boolean     @default(false) @map("es_fijo")
+  grupoFijoId            String?     @map("grupo_fijo_id")
   fechaCreacion          DateTime    @default(now()) @map("fecha_creacion")
   updatedAt              DateTime    @updatedAt @map("updated_at")
 
@@ -258,6 +262,7 @@ model Turno {
   @@index([canchaId, fecha, estado])
   @@index([clienteId])
   @@index([fecha, horaInicio])
+  @@index([grupoFijoId])
   @@map("turnos")
 }
 

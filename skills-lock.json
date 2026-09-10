@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "agentix-ceo": {
+      "source": "agentix-cloud/skills",
+      "sourceType": "github",
+      "skillPath": "skills/agentix-ceo/SKILL.md",
+      "computedHash": "6db16139df53d726ed558458be17721a7919bf461b6bb00de12986424f8f0e93"
+    },
     "brainstorming": {
       "source": "obra/superpowers",
       "sourceType": "github",

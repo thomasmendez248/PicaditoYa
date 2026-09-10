@@ -19,6 +19,7 @@ import {
 type Cancha = {
   id: string;
   nombre: string;
+  deporte?: string;
   capacidad: number;
   precioTurno: number;
   duracionTurnoMinutos: number;
@@ -35,9 +36,10 @@ type Predio = {
   politicaCancelacionHoras: number | null;
 };
 
-function limpiarTelefono(tel: string | null | undefined): string {
-  if (!tel) return "5493515138542";
+function limpiarTelefono(tel: string | null | undefined): string | null {
+  if (!tel) return null;
   const nums = tel.replace(/\D/g, "");
+  if (!nums) return null;
   if (nums.startsWith("549") || nums.startsWith("54")) return nums;
   if (nums.startsWith("15")) return `549${nums.slice(2)}`;
   return `549${nums}`;
@@ -316,25 +318,29 @@ export default function ModalReservaCancha({
         throw new Error(data.error || "No se pudo registrar el turno");
       }
 
-      // 2. Construir enlace a WhatsApp con los datos del turno
+      // 2. Construir enlace a WhatsApp con los datos del turno si el predio dispone de teléfono
       const numLimpio = limpiarTelefono(predio.telefono);
-      const lineaTitular = estaAutenticado && session?.user?.name
-        ? `👤 *Titular:* ${session.user.name}\n`
-        : nombreCliente.trim()
-        ? `👤 *Titular:* ${nombreCliente.trim()}\n`
-        : "";
+      if (numLimpio) {
+        const lineaTitular = estaAutenticado && session?.user?.name
+          ? `👤 *Titular:* ${session.user.name}\n`
+          : nombreCliente.trim()
+          ? `👤 *Titular:* ${nombreCliente.trim()}\n`
+          : "";
 
-      const mensaje =
-        `¡Hola! Acabo de reservar un turno en *${predio.nombre}*:\n\n` +
-        `⚽ *Cancha:* ${cancha.nombre}\n` +
-        `📅 *Fecha:* ${fecha}\n` +
-        `⏰ *Horario:* ${horaInicio} a ${horaFin} hs (${duracionMinutosReal} min)\n` +
-        lineaTitular +
-        `💰 *Total:* $${precioCalculado.toLocaleString("es-AR")}\n\n` +
-        `Te escribo para confirmar y coordinar la reserva. ¡Muchas gracias!`;
+        const mensaje =
+          `¡Hola! Acabo de reservar un turno en *${predio.nombre}*:\n\n` +
+          `*Cancha:* ${cancha.nombre}\n` +
+          `📅 *Fecha:* ${fecha}\n` +
+          `⏰ *Horario:* ${horaInicio} a ${horaFin} hs (${duracionMinutosReal} min)\n` +
+          lineaTitular +
+          `💰 *Total:* $${precioCalculado.toLocaleString("es-AR")}\n\n` +
+          `Te escribo para confirmar y coordinar la reserva. ¡Muchas gracias!`;
 
-      const urlWhatsapp = `https://wa.me/${numLimpio}?text=${encodeURIComponent(mensaje)}`;
-      setWhatsappUrlGenerado(urlWhatsapp);
+        const urlWhatsapp = `https://wa.me/${numLimpio}?text=${encodeURIComponent(mensaje)}`;
+        setWhatsappUrlGenerado(urlWhatsapp);
+      } else {
+        setWhatsappUrlGenerado(null);
+      }
       setReservaExitosa(true);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -355,7 +361,9 @@ export default function ModalReservaCancha({
         <div className="flex items-center justify-between p-6 sm:p-7 border-b border-white/10">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-brand">Reservar Turno</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-brand">
+                Reservar Turno
+              </span>
               <span className="text-[10px] font-black text-brand bg-brand/10 border border-brand/20 px-2.5 py-0.5 rounded-full">
                 Base {duracionCancha} min
               </span>
@@ -436,7 +444,7 @@ export default function ModalReservaCancha({
 
               {/* Botón Destacado de WhatsApp */}
               <div className="space-y-3 pt-2">
-                {whatsappUrlGenerado && (
+                {whatsappUrlGenerado ? (
                   <a
                     href={whatsappUrlGenerado}
                     target="_blank"
@@ -447,6 +455,10 @@ export default function ModalReservaCancha({
                     <span>Enviar Mensaje por WhatsApp a la Cancha</span>
                     <ExternalLink className="w-4 h-4 opacity-75" />
                   </a>
+                ) : (
+                  <div className="p-3.5 bg-white/5 border border-white/10 rounded-2xl text-xs text-white/60 text-center">
+                    El complejo no tiene un número de WhatsApp asociado. El administrador revisará tu turno directamente desde su panel.
+                  </div>
                 )}
 
                 <button

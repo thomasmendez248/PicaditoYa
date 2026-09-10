@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { cancelarTurnoSchema, marcarAsistenciaSchema } from "@/lib/validations/turnos";
 import { differenceInHours } from "date-fns";
 import { sendPushToUser, formatearFechaAmigable } from "@/lib/push-service";
+import { parseArgentinaDateTime } from "@/lib/date-utils";
 
 /**
  * PATCH /api/turnos/[id]
@@ -47,11 +48,9 @@ export async function PATCH(
         );
       }
 
-      // Verificar si la fecha y horario del turno ya pasaron
+      // Verificar si la fecha y horario del turno ya pasaron (respetando zona horaria de Argentina)
       const ahora = new Date();
-      const fechaTurno = new Date(
-        `${turno.fecha.toISOString().split("T")[0]}T${turno.horaInicio}:00`
-      );
+      const fechaTurno = parseArgentinaDateTime(turno.fecha, turno.horaInicio);
       if (fechaTurno <= ahora) {
         return NextResponse.json(
           { error: "No se puede cancelar un turno cuya fecha y horario ya han pasado" },

@@ -3,10 +3,19 @@
 import { useState, useEffect } from "react";
 import { X, CircleDot, Clock, DollarSign, Users, Calendar, AlertCircle, Loader2, Trash2 } from "lucide-react";
 
+export const DEPORTES = [
+  { id: "futbol", label: "Fútbol", defaultCapacidad: 10, defaultDuracion: 60 },
+  { id: "padel", label: "Pádel", defaultCapacidad: 4, defaultDuracion: 90 },
+  { id: "tenis", label: "Tenis", defaultCapacidad: 2, defaultDuracion: 60 },
+  { id: "basquet", label: "Básquet", defaultCapacidad: 10, defaultDuracion: 60 },
+  { id: "voley", label: "Vóley", defaultCapacidad: 12, defaultDuracion: 60 },
+] as const;
+
 export type CanchaData = {
   id?: string;
   predioId: string;
   nombre: string;
+  deporte?: string;
   capacidad: number;
   precioTurno: number;
   duracionTurnoMinutos: number;
@@ -42,6 +51,7 @@ export default function CanchaModal({
   const isEditing = !!cancha?.id;
 
   const [nombre, setNombre] = useState("");
+  const [deporte, setDeporte] = useState("futbol");
   const [capacidad, setCapacidad] = useState(10);
   const [precioTurno, setPrecioTurno] = useState(15000);
   const [duracionTurnoMinutos, setDuracionTurnoMinutos] = useState(60);
@@ -57,6 +67,7 @@ export default function CanchaModal({
   useEffect(() => {
     if (cancha) {
       setNombre(cancha.nombre || "");
+      setDeporte(cancha.deporte || "futbol");
       setCapacidad(cancha.capacidad ?? 10);
       setPrecioTurno(cancha.precioTurno ?? 15000);
       setDuracionTurnoMinutos(cancha.duracionTurnoMinutos ?? 60);
@@ -66,6 +77,7 @@ export default function CanchaModal({
       setPoliticaCancelacionHoras(cancha.politicaCancelacionHoras ?? 24);
     } else {
       setNombre("");
+      setDeporte("futbol");
       setCapacidad(10);
       setPrecioTurno(15000);
       setDuracionTurnoMinutos(60);
@@ -78,6 +90,15 @@ export default function CanchaModal({
   }, [cancha, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleSelectDeporte = (depId: string) => {
+    setDeporte(depId);
+    const dep = DEPORTES.find((d) => d.id === depId);
+    if (dep && !isEditing) {
+      setCapacidad(dep.defaultCapacidad);
+      setDuracionTurnoMinutos(dep.defaultDuracion);
+    }
+  };
 
   const toggleDia = (diaId: number) => {
     if (diasOperativos.includes(diaId)) {
@@ -96,6 +117,7 @@ export default function CanchaModal({
     const payload = {
       predioId,
       nombre,
+      deporte,
       capacidad: Number(capacidad),
       precioTurno: Number(precioTurno),
       duracionTurnoMinutos: Number(duracionTurnoMinutos),
@@ -182,6 +204,32 @@ export default function CanchaModal({
               <span>{error}</span>
             </div>
           )}
+
+          {/* Selector de Deporte */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-2">
+              Deporte *
+            </label>
+            <div className="grid grid-cols-5 gap-2">
+              {DEPORTES.map((d) => {
+                const selected = deporte === d.id;
+                return (
+                  <button
+                    type="button"
+                    key={d.id}
+                    onClick={() => handleSelectDeporte(d.id)}
+                    className={`flex items-center justify-center py-2.5 px-2 rounded-2xl border transition-all ${
+                      selected
+                        ? "bg-brand/20 border-brand text-brand shadow-[0_0_12px_rgba(69,228,148,0.25)] scale-[1.03]"
+                        : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span className="text-xs font-bold">{d.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">Nombre de la Cancha *</label>

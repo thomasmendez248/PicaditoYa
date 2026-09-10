@@ -24,9 +24,13 @@ import {
   CircleDot,
   Building2,
   ArrowUpDown,
+  Repeat,
+  FileSpreadsheet,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { getBadgeDeporte } from "@/lib/sports";
+import { exportarTurnosAExcel } from "@/lib/exportar-excel";
 
 function limpiarTelefono(tel: string | null | undefined): string {
   if (!tel) return "";
@@ -43,11 +47,14 @@ export type TurnoItem = {
   horaFin: string;
   estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show";
   precioAlMomentoReserva: number;
+  esFijo?: boolean;
+  grupoFijoId?: string | null;
   nombreClienteManual?: string | null;
   telefonoClienteManual?: string | null;
   cancha: {
     id: string;
     nombre: string;
+    deporte?: string;
     capacidad: number;
     precioTurno: number;
     predio: {
@@ -115,7 +122,9 @@ export default function ExploradorTurnos({
       if (filtroFecha) {
         params.append("fecha", filtroFecha);
       }
-      if (filtroEstado && filtroEstado !== "todos") {
+      if (filtroEstado === "fijos") {
+        params.append("esFijo", "true");
+      } else if (filtroEstado && filtroEstado !== "todos") {
         params.append("estado", filtroEstado);
       }
       if (busqueda.trim()) {
@@ -138,21 +147,28 @@ export default function ExploradorTurnos({
   }, [fetchTurnos]);
 
   // Actualizar estado de turno (confirmar, cancelar, completar)
-  const handleActualizarEstado = async (turnoId: string, nuevoEstado: string) => {
+  const handleActualizarEstado = async (
+    turnoId: string,
+    nuevoEstado: string,
+    cancelarSerie: boolean = false
+  ) => {
     setProcesandoId(turnoId);
     try {
       const res = await fetch(`/api/admin/turnos/${turnoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: nuevoEstado }),
+        body: JSON.stringify({ estado: nuevoEstado, cancelarSerie }),
       });
 
       if (!res.ok) throw new Error("No se pudo actualizar el estado");
 
-      // Actualizar listado local
-      setTurnos((prev) =>
-        prev.map((t) => (t.id === turnoId ? { ...t, estado: nuevoEstado as any } : t))
-      );
+      if (cancelarSerie) {
+        await fetchTurnos();
+      } else {
+        setTurnos((prev) =>
+          prev.map((t) => (t.id === turnoId ? { ...t, estado: nuevoEstado as any } : t))
+        );
+      }
 
       if (turnoSeleccionado && turnoSeleccionado.id === turnoId) {
         setTurnoSeleccionado((prev) => (prev ? { ...prev, estado: nuevoEstado as any } : null));
@@ -166,18 +182,65 @@ export default function ExploradorTurnos({
     }
   };
 
-  // Eliminar turno
-  const handleEliminarTurno = async (turnoId: string) => {
-    if (!confirm("¿Estás seguro de eliminar este registro de turno?")) return;
+  // Marcar asistencia formal ("asistió" / "no-show") actualizando puntaje del cliente
+  const handleMarcarAsistencia = async (turnoId: string, asistio: boolean) => {
     setProcesandoId(turnoId);
     try {
-      const res = await fetch(`/api/admin/turnos/${turnoId}`, {
-        method: "DELETE",
+      const res = await fetch(`/api/turnos/${turnoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "marcar_asistencia", asistio }),
       });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "No se pudo registrar la asistencia");
+      }
+
+      const nuevoEstado = asistio ? "completado" : "no_show";
+
+      // Actualizar listado local
+      setTurnos((prev) =>
+        prev.map((t) => (t.id === turnoId ? { ...t, estado: nuevoEstado as any } : t))
+      );
+
+      if (turnoSeleccionado && turnoSeleccionado.id === turnoId) {
+        setTurnoSeleccionado((prev) => (prev ? { ...prev, estado: nuevoEstado as any } : null));
+      }
+
+      if (onCambioTurno) onCambioTurno();
+    } catch (err: any) {
+      alert(err.message || "Error al registrar asistencia");
+    } finally {
+      setProcesandoId(null);
+    }
+  };
+
+  // Eliminar turno (individual o serie completa)
+  const handleEliminarTurno = async (turnoId: string, eliminarSerie: boolean = false) => {
+    const turno = turnos.find((t) => t.id === turnoId);
+    const mensaje =
+      turno?.esFijo && eliminarSerie
+        ? "¿Estás seguro de eliminar este turno y toda la serie semanal futura?"
+        : "¿Estás seguro de eliminar este registro de turno?";
+    if (!confirm(mensaje)) return;
+
+    setProcesandoId(turnoId);
+    try {
+      const res = await fetch(
+        `/api/admin/turnos/${turnoId}${eliminarSerie ? "?eliminarSerie=true" : ""}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!res.ok) throw new Error("No se pudo eliminar el turno");
 
-      setTurnos((prev) => prev.filter((t) => t.id !== turnoId));
+      if (eliminarSerie) {
+        await fetchTurnos();
+      } else {
+        setTurnos((prev) => prev.filter((t) => t.id !== turnoId));
+      }
       if (turnoSeleccionado?.id === turnoId) setTurnoSeleccionado(null);
       if (onCambioTurno) onCambioTurno();
     } catch (err: any) {
@@ -193,6 +256,7 @@ export default function ExploradorTurnos({
     const pendientes = turnos.filter((t) => t.estado === "pendiente").length;
     const confirmados = turnos.filter((t) => t.estado === "confirmado").length;
     const completados = turnos.filter((t) => t.estado === "completado").length;
+    const fijos = turnos.filter((t) => t.esFijo).length;
     const cancelados = turnos.filter(
       (t) => t.estado === "cancelado_a_tiempo" || t.estado === "cancelado_tarde"
     ).length;
@@ -200,7 +264,7 @@ export default function ExploradorTurnos({
       .filter((t) => t.estado === "confirmado" || t.estado === "completado")
       .reduce((sum, t) => sum + t.precioAlMomentoReserva, 0);
 
-    return { total, pendientes, confirmados, completados, cancelados, ingresosEstimados };
+    return { total, pendientes, confirmados, completados, fijos, cancelados, ingresosEstimados };
   }, [turnos]);
 
   // Formatear badge de estado
@@ -356,6 +420,17 @@ export default function ExploradorTurnos({
             </button>
           </div>
 
+          {/* Botón Exportar a Excel */}
+          <button
+            onClick={() => exportarTurnosAExcel(turnos, `Turnos_Reporte_${predioId}`)}
+            disabled={cargando || turnos.length === 0}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 hover:text-white border border-emerald-500/40 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+            title="Descargar listado completo y resumen de caja en archivo Excel (.xlsx)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <span className="hidden sm:inline">Exportar a Excel</span>
+          </button>
+
           {/* Botón Refrescar */}
           <button
             onClick={fetchTurnos}
@@ -370,9 +445,10 @@ export default function ExploradorTurnos({
 
         {/* Filtro de Estados (Pills / Botones) */}
         <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-white/10">
-          <span className="text-[11px] font-bold text-white/40 uppercase tracking-wider mr-1">Estado:</span>
+          <span className="text-[11px] font-bold text-white/40 uppercase tracking-wider mr-1">Filtrar:</span>
           {[
             { id: "todos", label: "Todos" },
+            { id: "fijos", label: "Fijos Semanales", badgeClass: "text-indigo-400" },
             { id: "pendiente", label: "Pendientes", badgeClass: "text-amber-400" },
             { id: "confirmado", label: "Confirmados", badgeClass: "text-brand" },
             { id: "completado", label: "Jugados" },
@@ -382,12 +458,13 @@ export default function ExploradorTurnos({
             <button
               key={item.id}
               onClick={() => setFiltroEstado(item.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                 filtroEstado === item.id
                   ? "bg-brand text-surface shadow-[0_0_12px_rgba(69,228,148,0.3)]"
                   : "bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border border-white/5"
               }`}
             >
+              {item.id === "fijos" && <Repeat className="w-3 h-3 text-indigo-400" />}
               {item.label}
             </button>
           ))}
@@ -451,7 +528,18 @@ export default function ExploradorTurnos({
                     >
                       {/* Fecha y Horario */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="font-bold text-white block capitalize">{fechaLegible}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-white capitalize">{fechaLegible}</span>
+                          {turno.esFijo && (
+                            <span
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-500/25 text-indigo-300 border border-indigo-500/40"
+                              title="Turno Fijo Semanal"
+                            >
+                              <Repeat className="w-2.5 h-2.5" />
+                              Fijo
+                            </span>
+                          )}
+                        </div>
                         <span className="font-mono text-brand font-bold text-[11px] block mt-0.5">
                           {turno.horaInicio} a {turno.horaFin} hs
                         </span>
@@ -460,8 +548,8 @@ export default function ExploradorTurnos({
                       {/* Cancha */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span className="font-bold text-white block">{turno.cancha.nombre}</span>
-                        <span className="text-[10px] text-white/40 block">
-                          Fútbol {turno.cancha.capacidad <= 10 ? 5 : turno.cancha.capacidad <= 14 ? 7 : 11}
+                        <span className="text-[10px] text-brand/80 font-semibold block">
+                          {getBadgeDeporte(turno.cancha.deporte, turno.cancha.capacidad)}
                         </span>
                       </td>
 
@@ -550,12 +638,22 @@ export default function ExploradorTurnos({
                           {turno.estado === "confirmado" && (
                             <>
                               <button
-                                onClick={() => handleActualizarEstado(turno.id, "completado")}
+                                onClick={() => handleMarcarAsistencia(turno.id, true)}
                                 disabled={procesandoId === turno.id}
-                                className="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold text-[11px] border border-sky-500/30 transition-colors"
-                                title="Marcar como jugado / asistió"
+                                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-[11px] border border-emerald-500/30 transition-colors flex items-center gap-1"
+                                title="Marcar que el cliente asistió al turno"
                               >
-                                Completar
+                                <Check className="w-3 h-3" />
+                                <span>Asistió</span>
+                              </button>
+                              <button
+                                onClick={() => handleMarcarAsistencia(turno.id, false)}
+                                disabled={procesandoId === turno.id}
+                                className="px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-[11px] border border-rose-500/30 transition-colors flex items-center gap-1"
+                                title="Marcar No-Show (cliente no asistió)"
+                              >
+                                <X className="w-3 h-3" />
+                                <span>No-Show</span>
                               </button>
                               <button
                                 onClick={() => handleActualizarEstado(turno.id, "cancelado_a_tiempo")}
@@ -643,6 +741,16 @@ export default function ExploradorTurnos({
                   ${turnoSeleccionado.precioAlMomentoReserva.toLocaleString("es-AR")}
                 </span>
               </div>
+              {turnoSeleccionado.esFijo && (
+                <div className="flex items-center justify-between py-1 border-b border-white/5">
+                  <span className="text-xs text-indigo-300 font-bold flex items-center gap-1">
+                    <Repeat className="w-3.5 h-3.5" /> Modalidad:
+                  </span>
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                    Turno Fijo Semanal
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between py-1 border-b border-white/5">
                 <span className="text-white/50">Titular de la reserva:</span>
                 <span className="font-bold text-white">
@@ -667,6 +775,33 @@ export default function ExploradorTurnos({
               )}
             </div>
 
+            {/* Control de Asistencia si el turno está confirmado */}
+            {turnoSeleccionado.estado === "confirmado" && (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-2.5">
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">
+                  Registrar Asistencia del Turno:
+                </span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    onClick={() => handleMarcarAsistencia(turnoSeleccionado.id, true)}
+                    disabled={procesandoId === turnoSeleccionado.id}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-surface font-black text-xs transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.3)] cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Asistió</span>
+                  </button>
+                  <button
+                    onClick={() => handleMarcarAsistencia(turnoSeleccionado.id, false)}
+                    disabled={procesandoId === turnoSeleccionado.id}
+                    className="py-2.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>No Asistió (No-Show)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Acciones de cambio de estado en el modal */}
             <div className="space-y-2">
               <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider block">
@@ -680,7 +815,7 @@ export default function ExploradorTurnos({
                   Confirmar
                 </button>
                 <button
-                  onClick={() => handleActualizarEstado(turnoSeleccionado.id, "completado")}
+                  onClick={() => handleMarcarAsistencia(turnoSeleccionado.id, true)}
                   className="px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 text-xs font-bold transition-colors"
                 >
                   Jugado
@@ -698,19 +833,48 @@ export default function ExploradorTurnos({
                   Cancelado
                 </button>
                 <button
-                  onClick={() => handleActualizarEstado(turnoSeleccionado.id, "no_show")}
+                  onClick={() => handleMarcarAsistencia(turnoSeleccionado.id, false)}
                   className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 text-xs font-bold transition-colors"
                 >
                   No asistió
                 </button>
                 <button
-                  onClick={() => handleEliminarTurno(turnoSeleccionado.id)}
+                  onClick={() => handleEliminarTurno(turnoSeleccionado.id, false)}
                   className="px-3 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-600/40 text-red-400 text-xs font-bold transition-colors flex items-center justify-center gap-1"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Eliminar</span>
                 </button>
               </div>
+
+              {/* Botones especiales de cancelación/eliminación si es serie fija */}
+              {turnoSeleccionado.esFijo && turnoSeleccionado.grupoFijoId && (
+                <div className="pt-2 border-t border-white/10 space-y-2">
+                  <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">
+                    Acciones sobre la Serie Fija:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        if (confirm("¿Cancelar este turno y todos los futuros de la serie fija?")) {
+                          handleActualizarEstado(turnoSeleccionado.id, "cancelado_a_tiempo", true);
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Repeat className="w-3.5 h-3.5" />
+                      <span>Cancelar Serie</span>
+                    </button>
+                    <button
+                      onClick={() => handleEliminarTurno(turnoSeleccionado.id, true)}
+                      className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Eliminar Serie</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-2">

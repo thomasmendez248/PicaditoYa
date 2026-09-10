@@ -55,6 +55,14 @@ export default function Navbar() {
                 <Shield className="w-3.5 h-3.5" />
                 <span>Super Admin</span>
               </Link>
+            ) : userRole === "empleado" ? (
+              <Link
+                href="/empleado/turnero"
+                className="flex items-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm"
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Turnero</span>
+              </Link>
             ) : (
               <Link
                 href="/admin"

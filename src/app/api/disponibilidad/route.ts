@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   const nombre = searchParams.get("nombre") ?? undefined;
   const ciudad = searchParams.get("ciudad") ?? undefined;
   const provincia = searchParams.get("provincia") ?? undefined;
+  const deporte = searchParams.get("deporte") ?? undefined;
 
   const latStr = searchParams.get("lat");
   const lngStr = searchParams.get("lng");
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
       lngUsuario,
       distanciaMaxKm,
       capacidad,
-      provincia
+      provincia,
+      deporte
     );
 
     return NextResponse.json({ canchas });
