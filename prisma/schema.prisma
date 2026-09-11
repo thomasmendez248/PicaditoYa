@@ -130,6 +130,9 @@ model Usuario {
   // Solo para admin y empleado
   predioId        String?     @map("predio_id")
 
+  // Quién creó este usuario (admin que creó al empleado)
+  creadoPorId     String?     @map("creado_por_id")
+
   // Plan de membresía (solo para admin)
   planMembresiaId              String?   @map("plan_membresia_id")
   fechaVencimientoSuscripcion  DateTime? @map("fecha_vencimiento_suscripcion")
@@ -147,16 +150,20 @@ model Usuario {
   predio          Predio?        @relation("EmpleadosDelPredio", fields: [predioId], references: [id])
   predioAdminDe   Predio[]       @relation("AdminDelPredio")
   planMembresia   PlanMembresia? @relation(fields: [planMembresiaId], references: [id])
+  creadoPor       Usuario?       @relation("EmpleadoCreadoPor", fields: [creadoPorId], references: [id])
+  empleadosCreados Usuario[]     @relation("EmpleadoCreadoPor")
   turnos          Turno[]        @relation("TurnosDelCliente")
   accounts        Account[]
   sessions        Session[]
   pagosAbono      PagoAbono[]
   solicitudesAprobadas SolicitudRegistro[] @relation("SolicitudAdmin")
   pushSubscriptions    PushSubscription[]
+  auditoriasTurno      AuditoriaTurno[]
 
   @@index([predioId])
   @@index([rol])
   @@index([planMembresiaId])
+  @@index([creadoPorId])
   @@map("usuarios")
 }
 
@@ -258,12 +265,31 @@ model Turno {
   // Relations
   cancha                 Cancha      @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   cliente                Usuario?    @relation("TurnosDelCliente", fields: [clienteId], references: [id])
+  auditorias             AuditoriaTurno[]
 
   @@index([canchaId, fecha, estado])
   @@index([clienteId])
   @@index([fecha, horaInicio])
   @@index([grupoFijoId])
   @@map("turnos")
+}
+
+// Registro de auditoría de cada cambio en un turno (quién, qué, cuándo)
+model AuditoriaTurno {
+  id          String   @id @default(cuid())
+  turnoId     String   @map("turno_id")
+  usuarioId   String   @map("usuario_id")
+  accion      String   // "crear", "cambiar_estado", "marcar_asistencia"
+  detalle     String?  // "pendiente → confirmado"
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  turno       Turno    @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@index([turnoId])
+  @@index([usuarioId])
+  @@index([createdAt])
+  @@map("auditorias_turno")
 }
 
 model PagoAbono {

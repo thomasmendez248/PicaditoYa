@@ -56,7 +56,7 @@ async function main() {
     console.log(`Estado del predio con suscripción vencida: "${predioActualizado?.estado}" (esperado: pendiente_pago)`);
 
     let canchasDisponibles = await getCanchasDisponibles();
-    let canchaVisible = canchasDisponibles.some((c) => c.id === cancha.id);
+    let canchaVisible = canchasDisponibles.some((c: { id: string }) => c.id === cancha.id);
     console.log(`¿La cancha aparece en la búsqueda?: ${canchaVisible} (esperado: false)`);
     if (canchaVisible || predioActualizado?.estado !== "pendiente_pago") {
       throw new Error("Fallo en Escenario 1");
@@ -75,7 +75,7 @@ async function main() {
     console.log(`Estado del predio tras registrar pago: "${predioActualizado?.estado}" (esperado: activo)`);
 
     canchasDisponibles = await getCanchasDisponibles();
-    canchaVisible = canchasDisponibles.some((c) => c.id === cancha.id);
+    canchaVisible = canchasDisponibles.some((c: { id: string }) => c.id === cancha.id);
     console.log(`¿La cancha vuelve a aparecer en la búsqueda?: ${canchaVisible} (esperado: true)`);
     if (!canchaVisible || predioActualizado?.estado !== "activo") {
       throw new Error("Fallo en Escenario 2");
@@ -93,7 +93,7 @@ async function main() {
     console.log(`Estado del predio con admin deshabilitado: "${predioActualizado?.estado}" (esperado: inactivo)`);
 
     canchasDisponibles = await getCanchasDisponibles();
-    canchaVisible = canchasDisponibles.some((c) => c.id === cancha.id);
+    canchaVisible = canchasDisponibles.some((c: { id: string }) => c.id === cancha.id);
     console.log(`¿La cancha aparece en la búsqueda?: ${canchaVisible} (esperado: false)`);
     if (canchaVisible || predioActualizado?.estado !== "inactivo") {
       throw new Error("Fallo en Escenario 3");
@@ -111,7 +111,7 @@ async function main() {
     console.log(`Estado del predio tras re-habilitar al admin: "${predioActualizado?.estado}" (esperado: activo)`);
 
     canchasDisponibles = await getCanchasDisponibles();
-    canchaVisible = canchasDisponibles.some((c) => c.id === cancha.id);
+    canchaVisible = canchasDisponibles.some((c: { id: string }) => c.id === cancha.id);
     console.log(`¿La cancha vuelve a aparecer en la búsqueda?: ${canchaVisible} (esperado: true)`);
     if (!canchaVisible || predioActualizado?.estado !== "activo") {
       throw new Error("Fallo en Escenario 4");

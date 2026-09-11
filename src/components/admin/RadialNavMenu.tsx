@@ -103,15 +103,14 @@ export default function RadialNavMenu() {
         className="fixed bottom-6 left-1/2 -translate-x-1/2 sm:bottom-auto sm:left-7 sm:top-1/2 sm:-translate-y-1/2 sm:translate-x-0 z-50 select-none"
       >
         <div className="relative">
-          
+
           {/* Botón Principal */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl relative z-50 group border ${
-              isOpen
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl relative z-50 group border ${isOpen
                 ? "bg-brand text-surface border-brand rotate-90 scale-110 shadow-[0_0_25px_rgba(69,228,148,0.7)]"
                 : "bg-[#0f1712]/95 backdrop-blur-xl border-white/20 text-white hover:border-brand/80 hover:bg-brand hover:text-surface hover:scale-110 hover:shadow-[0_0_20px_rgba(69,228,148,0.5)]"
-            }`}
+              }`}
             aria-label="Abrir menú de navegación"
             title="Menú de secciones"
           >
@@ -138,33 +137,30 @@ export default function RadialNavMenu() {
                   <>
                     {/* Círculo individual de la opción */}
                     <div
-                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border transition-all duration-200 shadow-2xl group-hover:scale-110 shrink-0 ${
-                        isActive
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border transition-all duration-200 shadow-2xl group-hover:scale-110 shrink-0 ${isActive
                           ? "bg-brand text-surface border-brand shadow-[0_0_20px_rgba(69,228,148,0.6)] ring-4 ring-brand/20"
                           : isLogout
-                          ? "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-red-500/20 text-red-400 hover:text-red-300 border-white/20 hover:border-red-500/50"
-                          : "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-brand/20 text-white hover:text-brand border-white/20 hover:border-brand/60"
-                      }`}
+                            ? "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-red-500/20 text-red-400 hover:text-red-300 border-white/20 hover:border-red-500/50"
+                            : "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-brand/20 text-white hover:text-brand border-white/20 hover:border-brand/60"
+                        }`}
                     >
                       <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${isActive ? "stroke-[2.5]" : ""}`} />
                     </div>
 
                     {/* Tooltip / Cartelito con el nombre */}
                     <div
-                      className={`bg-[#0f1712]/95 backdrop-blur-xl border px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none transition-all group-hover:scale-105 ${
-                        isLogout
+                      className={`bg-[#0f1712]/95 backdrop-blur-xl border px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none transition-all group-hover:scale-105 ${isLogout
                           ? "border-white/15 group-hover:border-red-500/50"
                           : "border-white/15 group-hover:border-brand/50"
-                      }`}
+                        }`}
                     >
                       <p
-                        className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left ${
-                          isActive
+                        className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left ${isActive
                             ? "text-brand"
                             : isLogout
-                            ? "text-red-400"
-                            : "text-white"
-                        }`}
+                              ? "text-red-400"
+                              : "text-white"
+                          }`}
                       >
                         {item.label}
                       </p>
@@ -183,11 +179,10 @@ export default function RadialNavMenu() {
                       ["--desk-x" as any]: `${item.desktop.x}px`,
                       ["--desk-y" as any]: `${item.desktop.y}px`,
                     }}
-                    className={`absolute top-0 left-0 transition-all duration-300 ease-out pointer-events-auto ${
-                      isOpen
+                    className={`absolute top-0 left-0 transition-all duration-300 ease-out pointer-events-auto ${isOpen
                         ? "scale-100 opacity-100 [transform:translate(var(--mob-x),var(--mob-y))_translate(-50%,-50%)] sm:[transform:translate(var(--desk-x),var(--desk-y))_translate(-50%,-50%)]"
                         : "scale-0 opacity-0 pointer-events-none [transform:translate(0,0)_translate(-50%,-50%)]"
-                    }`}
+                      }`}
                   >
                     {isLogout ? (
                       <button

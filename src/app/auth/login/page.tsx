@@ -37,23 +37,28 @@ export default function LoginPage() {
       } else {
         const urlParams = new URLSearchParams(window.location.search);
         const callbackUrl = urlParams.get("callbackUrl");
-        if (callbackUrl) {
-          router.push(callbackUrl);
-        } else {
-          try {
-            const res = await fetch("/api/auth/session");
-            const sess = await res.json();
-            const rol = sess?.user?.rol;
-            if (rol === "super_admin") {
-              router.push("/super-admin");
-            } else if (["admin", "empleado"].includes(rol)) {
-              router.push("/admin");
+        try {
+          const res = await fetch("/api/auth/session");
+          const sess = await res.json();
+          const rol = sess?.user?.rol;
+
+          if (rol === "empleado") {
+            if (callbackUrl && callbackUrl.startsWith("/empleado")) {
+              router.push(callbackUrl);
             } else {
-              router.push("/cliente/mis-turnos");
+              router.push("/empleado/turnero");
             }
-          } catch {
+          } else if (callbackUrl) {
+            router.push(callbackUrl);
+          } else if (rol === "super_admin") {
+            router.push("/super-admin");
+          } else if (rol === "admin") {
+            router.push("/admin");
+          } else {
             router.push("/cliente/mis-turnos");
           }
+        } catch {
+          router.push(callbackUrl || "/cliente/mis-turnos");
         }
         router.refresh();
       }

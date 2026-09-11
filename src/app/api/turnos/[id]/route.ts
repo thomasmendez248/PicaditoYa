@@ -111,6 +111,15 @@ export async function PATCH(
         await actualizarPuntajeCliente(turno.clienteId, "no_show");
       }
 
+      await prisma.auditoriaTurno.create({
+        data: {
+          turnoId: id,
+          usuarioId: session.user.id,
+          accion: "cancelar",
+          detalle: esACiempo ? "Cancelado a tiempo por cliente" : "Cancelado tarde por cliente (penalización)",
+        },
+      });
+
       // Notificar al administrador del predio sobre la cancelación
       const adminId = turno.cancha.predio.adminId;
       if (adminId) {
@@ -156,6 +165,15 @@ export async function PATCH(
       const turnoActualizado = await prisma.turno.update({
         where: { id },
         data: { estado: nuevoEstado },
+      });
+
+      await prisma.auditoriaTurno.create({
+        data: {
+          turnoId: id,
+          usuarioId: session.user.id,
+          accion: "marcar_asistencia",
+          detalle: `${turno.estado} → ${nuevoEstado} (${asistio ? "Asistió" : "No asistió"})`,
+        },
       });
 
       if (turno.clienteId) {

@@ -131,7 +131,8 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true, admin });
   }
 
-  return NextResponse.json({ error: "Acción no reconocida" }, { status: 400 });
+  return NextResponse.json({ error: "Acción no reconocida" }
+    , { status: 400 });
 }
 
 /**
