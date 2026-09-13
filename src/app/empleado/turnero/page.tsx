@@ -26,6 +26,7 @@ import {
   Shield,
   DollarSign,
   CalendarDays,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -62,7 +63,7 @@ interface TurnoEmpleado {
   fecha: string;
   horaInicio: string;
   horaFin: string;
-  estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show";
+  estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show" | "pendiente_cancelacion";
   precioAlMomentoReserva: number;
   nombreClienteManual?: string | null;
   telefonoClienteManual?: string | null;
@@ -98,6 +99,7 @@ function limpiarTelefono(tel: string | null | undefined): string {
 const ESTADOS_DISPONIBLES = [
   { valor: "confirmado", label: "Confirmado", color: "text-brand border-brand/30 bg-brand/10" },
   { valor: "pendiente", label: "Pendiente", color: "text-amber-400 border-amber-500/30 bg-amber-500/10" },
+  { valor: "pendiente_cancelacion", label: "Pend. Cancelación", color: "text-rose-400 border-rose-500/40 bg-rose-500/20" },
   { valor: "completado", label: "Completado (Asistió)", color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
   { valor: "no_show", label: "No Asistió (No-Show)", color: "text-rose-400 border-rose-500/30 bg-rose-500/10" },
   { valor: "cancelado_a_tiempo", label: "Cancelado a tiempo", color: "text-white/60 border-white/20 bg-white/5" },
@@ -281,6 +283,23 @@ export default function EmpleadoTurneroPage() {
       fetchTurnos();
     } catch (err: any) {
       setErrorEstado(err.message);
+    } finally {
+      setGuardandoEstado(false);
+    }
+  };
+
+  // Eliminar / liberar turno (Empleado)
+  const handleEliminarTurnoEmpleado = async () => {
+    if (!turnoSeleccionado) return;
+    if (!confirm("¿Estás seguro de eliminar este turno y liberar el horario?")) return;
+    setGuardandoEstado(true);
+    try {
+      const res = await fetch(`/api/empleado/turnos/${turnoSeleccionado.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al eliminar turno");
+      setTurnoSeleccionado(null);
+      fetchTurnos();
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setGuardandoEstado(false);
     }
@@ -940,6 +959,69 @@ export default function EmpleadoTurneroPage() {
               )}
             </div>
 
+            {/* ── ALERTA Y GESTIÓN: CANCELACIÓN SOLICITADA POR CLIENTE ── */}
+            {turnoSeleccionado.estado === "pendiente_cancelacion" && (
+              <div className="mb-5 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 space-y-2.5">
+                <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                  <span>Solicitud de Cancelación del Cliente</span>
+                </div>
+                <p className="text-[11px] text-rose-200/80">
+                  El cliente solicitó cancelar este turno con la anticipación requerida. Podés aprobar la cancelación o rechazarla y mantener la reserva.
+                </p>
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    onClick={async () => {
+                      setGuardandoEstado(true);
+                      try {
+                        const res = await fetch(`/api/empleado/turnos/${turnoSeleccionado.id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ estado: "cancelado_a_tiempo" }),
+                        });
+                        if (!res.ok) throw new Error("Error al aprobar cancelación");
+                        setTurnoSeleccionado(null);
+                        fetchTurnos();
+                      } catch (err: any) {
+                        alert(err.message);
+                      } finally {
+                        setGuardandoEstado(false);
+                      }
+                    }}
+                    disabled={guardandoEstado}
+                    className="py-2.5 px-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-surface font-black text-xs transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.3)] cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Aprobar Cancelación</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setGuardandoEstado(true);
+                      try {
+                        const res = await fetch(`/api/empleado/turnos/${turnoSeleccionado.id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ estado: "confirmado" }),
+                        });
+                        if (!res.ok) throw new Error("Error al rechazar solicitud");
+                        setTurnoSeleccionado(null);
+                        fetchTurnos();
+                      } catch (err: any) {
+                        alert(err.message);
+                      } finally {
+                        setGuardandoEstado(false);
+                      }
+                    }}
+                    disabled={guardandoEstado}
+                    className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Rechazar Solicitud</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ── SECCIÓN: EDITAR ESTADO (SOLO CAMBIAR ESTADO, NO ELIMINAR) ── */}
             <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-3 mb-5">
               <div className="flex items-center gap-2">
@@ -1034,7 +1116,17 @@ export default function EmpleadoTurneroPage() {
               )}
             </div>
 
-            <div className="mt-6 pt-4 border-t border-white/10 flex justify-end">
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleEliminarTurnoEmpleado}
+                disabled={guardandoEstado}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Eliminar Turno</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setTurnoSeleccionado(null)}

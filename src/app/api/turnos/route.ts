@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { turnoSchema } from "@/lib/validations/turnos";
 import { sendPushToUser, formatearFechaAmigable } from "@/lib/push-service";
+import { obtenerDiaSemana } from "@/lib/disponibilidad";
 
 /**
  * GET /api/turnos?canchaId=...&fecha=YYYY-MM-DD
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       where: {
         canchaId,
         fecha: { equals: fechaDate },
-        estado: { in: ["confirmado", "pendiente"] as any },
+        estado: { in: ["confirmado", "pendiente", "pendiente_cancelacion"] as any },
       },
       select: {
         id: true,
@@ -89,12 +90,20 @@ export async function POST(request: NextRequest) {
         throw new Error("PREDIO_NO_DISPONIBLE");
       }
 
-      // 2. Verificar disponibilidad dentro de la transacción protegida
+      // Validar si la cancha opera en este día de la semana
+      const diaSemana = obtenerDiaSemana(fecha);
+      if (Array.isArray(cancha.diasOperativos) && cancha.diasOperativos.length > 0) {
+        if (!cancha.diasOperativos.includes(diaSemana)) {
+          throw new Error("CANCHA_NO_OPERATIVA");
+        }
+      }
+
+      // 2. Verificar disponibilidad dentro de la transacción protegida (incluyendo pendiente_cancelacion)
       const turnosOcupados = await tx.turno.findMany({
         where: {
           canchaId,
           fecha: { equals: fechaDate },
-          estado: { in: ["confirmado", "pendiente"] },
+          estado: { in: ["confirmado", "pendiente", "pendiente_cancelacion"] },
         },
         select: {
           id: true,
@@ -174,6 +183,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: "El predio no está disponible para reservas actualmente" },
           { status: 403 }
+        );
+      }
+      if (error.message === "CANCHA_NO_OPERATIVA") {
+        return NextResponse.json(
+          { error: "La cancha no se encuentra disponible ni operativa en el día seleccionado" },
+          { status: 400 }
         );
       }
       if (error.message === "TURNO_SOLAPADO") {

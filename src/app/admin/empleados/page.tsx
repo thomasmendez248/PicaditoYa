@@ -28,7 +28,8 @@ interface Empleado {
   email: string;
   telefono: string | null;
   activo: boolean;
-  createdAt: string;
+  fechaCreacion?: string | Date;
+  createdAt?: string | Date;
 }
 
 export default function AdminEmpleadosPage() {
@@ -208,7 +209,7 @@ export default function AdminEmpleadosPage() {
           <ul className="list-disc list-inside space-y-0.5 text-white/60">
             <li>Visualizar los turnos del día y agenda de este complejo.</li>
             <li>Crear turnos manuales o para clientes.</li>
-            <li>Ver el detalle del turno y <strong className="text-white">cambiar su estado</strong> (confirmado, completado, cancelado, no-show). No pueden eliminar turnos.</li>
+            <li>Gestionar el detalle del turno, <strong className="text-white">cambiar su estado</strong> (confirmado, completado, cancelar solicitudes de clientes) y liberar/eliminar turnos del complejo.</li>
             <li>Todas sus modificaciones quedan registradas con nombre y fecha en el historial de auditoría.</li>
           </ul>
         </div>
@@ -317,7 +318,14 @@ export default function AdminEmpleadosPage() {
                   <Clock className="w-3.5 h-3.5 shrink-0" />
                   <span>
                     Dado de alta el{" "}
-                    {format(new Date(emp.createdAt), "d 'de' MMMM, yyyy", { locale: es })}
+                    {(() => {
+                      const rawDate = emp.fechaCreacion || emp.createdAt;
+                      if (!rawDate) return "Reciente";
+                      const d = new Date(rawDate);
+                      return !isNaN(d.getTime())
+                        ? format(d, "d 'de' MMMM, yyyy", { locale: es })
+                        : "Reciente";
+                    })()}
                   </span>
                 </div>
               </div>

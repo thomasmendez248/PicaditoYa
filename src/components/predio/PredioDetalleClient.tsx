@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
@@ -16,7 +16,7 @@ import {
   ShieldCheck,
   Calendar,
 } from "lucide-react";
-import { getBadgeDeporte } from "@/lib/sports";
+import { getBadgeDeporte, DEPORTES_FILTRO } from "@/lib/sports";
 
 type Cancha = {
   id: string;
@@ -47,11 +47,20 @@ type Predio = {
 export default function PredioDetalleClient({ predio }: { predio: Predio }) {
   const [canchaSeleccionada, setCanchaSeleccionada] = useState<Cancha | null>(null);
   const [modalReservaOpen, setModalReservaOpen] = useState(false);
+  const [deporteFiltro, setDeporteFiltro] = useState<string>("");
 
   const abrirModalReserva = (cancha: Cancha) => {
     setCanchaSeleccionada(cancha);
     setModalReservaOpen(true);
   };
+
+  const canchasFiltradas = useMemo(() => {
+    if (!deporteFiltro) return predio.canchas;
+    return predio.canchas.filter((c) => {
+      const dep = (c.deporte || "futbol").toLowerCase();
+      return dep === deporteFiltro;
+    });
+  }, [predio.canchas, deporteFiltro]);
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-text-main overflow-x-hidden relative">
@@ -137,13 +146,44 @@ export default function PredioDetalleClient({ predio }: { predio: Predio }) {
 
           {/* ── LISTADO DE CANCHAS DEL PREDIO ── */}
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-display font-black text-white uppercase tracking-wide">
-                  Canchas disponibles ({predio.canchas.length})
+                  Canchas disponibles ({canchasFiltradas.length})
                 </h2>
                 <p className="text-xs text-white/60 mt-0.5">Hacé click en cualquier cancha para elegir fecha y horario de reserva</p>
               </div>
+
+              {deporteFiltro !== "" && (
+                <button
+                  type="button"
+                  onClick={() => setDeporteFiltro("")}
+                  className="text-xs text-brand hover:underline font-bold self-start sm:self-auto"
+                >
+                  Restablecer filtros
+                </button>
+              )}
+            </div>
+
+            {/* ── BARRA DE FILTROS POR TIPO DE CANCHA (Todos, Fútbol, Pádel, Tenis, Básquet, Vóley) ── */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {DEPORTES_FILTRO.map((dep) => {
+                const activo = (deporteFiltro === "" && dep.id === "") || deporteFiltro === dep.id;
+                return (
+                  <button
+                    key={dep.id}
+                    type="button"
+                    onClick={() => setDeporteFiltro(dep.id)}
+                    className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all shrink-0 border select-none ${
+                      activo
+                        ? "bg-brand text-surface border-brand shadow-[0_0_15px_rgba(69,228,148,0.35)] scale-105"
+                        : "bg-[#0f1712]/90 hover:bg-white/10 text-white/70 hover:text-white border-white/15 hover:border-brand/40"
+                    }`}
+                  >
+                    {dep.label}
+                  </button>
+                );
+              })}
             </div>
 
             {predio.canchas.length === 0 ? (
@@ -151,9 +191,24 @@ export default function PredioDetalleClient({ predio }: { predio: Predio }) {
                 <CalendarDays className="w-12 h-12 text-white/30 mx-auto mb-3" />
                 <p className="text-white font-bold text-lg">Este complejo aún no ha publicado canchas activas.</p>
               </div>
+            ) : canchasFiltradas.length === 0 ? (
+              <div className="bg-[#0f1712]/90 backdrop-blur-xl border border-white/10 p-12 rounded-[2.5rem] text-center shadow-xl space-y-4 animate-fade-in">
+                <CalendarDays className="w-12 h-12 text-white/30 mx-auto" />
+                <div>
+                  <p className="text-white font-bold text-lg">No hay canchas de este tipo disponibles en este complejo.</p>
+                  <p className="text-white/50 text-xs mt-1">Probá seleccionando otra disciplina o ver todas las canchas.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeporteFiltro("")}
+                  className="bg-brand text-surface font-black px-6 py-2.5 rounded-full text-xs hover:bg-brand-hover transition-all shadow-[0_0_15px_rgba(69,228,148,0.25)]"
+                >
+                  Ver todas las canchas
+                </button>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {predio.canchas.map((cancha) => {
+                {canchasFiltradas.map((cancha) => {
                   const tipoCancha = getBadgeDeporte(cancha.deporte, cancha.capacidad);
 
                   return (

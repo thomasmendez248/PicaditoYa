@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { updateTurnoEstadoSchema } from "@/lib/validations/admin";
+import { sendPushToUser, formatearFechaAmigable } from "@/lib/push-service";
 
 /**
  * PUT /api/empleado/turnos/[id]
@@ -36,7 +37,12 @@ export async function PUT(
 
     const turno = await prisma.turno.findUnique({
       where: { id },
-      include: { cancha: { include: { predio: true } } },
+      include: {
+        cancha: {
+          include: { predio: true },
+        },
+        cliente: true,
+      },
     });
 
     if (!turno) {
@@ -75,6 +81,26 @@ export async function PUT(
       },
     });
 
+    // Notificar al cliente si se aprueba o rechaza una solicitud de cancelación
+    if (estadoAnterior === "pendiente_cancelacion" && turno.clienteId) {
+      const fechaTexto = formatearFechaAmigable(turno.fecha);
+      if (nuevoEstado === "cancelado_a_tiempo") {
+        sendPushToUser(turno.clienteId, {
+          title: "Cancelación aprobada ✅",
+          body: `Tu solicitud de cancelación para el turno en ${turno.cancha.nombre} (${fechaTexto} ${turno.horaInicio}hs) fue aceptada.`,
+          url: "/cliente/mis-turnos",
+          tag: `cancelacion-aprobada-${turno.id}`,
+        }).catch((err) => console.error("[PUT /api/empleado/turnos/[id]] Error push cancelación aprobada:", err));
+      } else if (nuevoEstado === "confirmado") {
+        sendPushToUser(turno.clienteId, {
+          title: "Solicitud no aprobada ℹ️",
+          body: `Tu solicitud de cancelación para el turno en ${turno.cancha.nombre} (${fechaTexto} ${turno.horaInicio}hs) no fue aprobada. El turno continúa confirmado.`,
+          url: "/cliente/mis-turnos",
+          tag: `cancelacion-rechazada-${turno.id}`,
+        }).catch((err) => console.error("[PUT /api/empleado/turnos/[id]] Error push cancelación rechazada:", err));
+      }
+    }
+
     // Si se marcó asistencia, actualizar puntaje del cliente
     if (turno.clienteId && (nuevoEstado === "completado" || nuevoEstado === "no_show")) {
       const incremento =
@@ -101,5 +127,63 @@ export async function PUT(
   } catch (error) {
     console.error("[PUT /api/empleado/turnos/[id]]", error);
     return NextResponse.json({ error: "Error al actualizar el turno" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/empleado/turnos/[id]
+ * Permite al empleado eliminar / liberar un turno de su predio asignado.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+
+  if (!session?.user || !["empleado", "admin", "super_admin"].includes(session.user.rol)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const isSuperAdmin = session.user.rol === "super_admin";
+
+    const turno = await prisma.turno.findUnique({
+      where: { id },
+      include: {
+        cancha: {
+          include: { predio: true },
+        },
+      },
+    });
+
+    if (!turno) {
+      return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 });
+    }
+
+    const esAdminPredio = session.user.rol === "admin" && turno.cancha.predio.adminId === session.user.id;
+    const esEmpleadoPredio = session.user.rol === "empleado" && turno.cancha.predioId === session.user.predioId;
+
+    if (!isSuperAdmin && !esAdminPredio && !esEmpleadoPredio) {
+      return NextResponse.json({ error: "Sin permisos sobre este turno" }, { status: 403 });
+    }
+
+    // Registrar en auditoría antes de eliminar
+    await prisma.auditoriaTurno.create({
+      data: {
+        turnoId: id,
+        usuarioId: session.user.id,
+        accion: "eliminar_turno",
+        detalle: `Turno eliminado por ${session.user.rol}. Cancha: ${turno.cancha.nombre}, Fecha: ${turno.fecha}, Horario: ${turno.horaInicio}-${turno.horaFin}`,
+      },
+    });
+
+    await prisma.turno.delete({ where: { id } });
+
+    return NextResponse.json({ message: "Turno eliminado y horario liberado exitosamente" });
+  } catch (error) {
+    console.error("[DELETE /api/empleado/turnos/[id]]", error);
+    return NextResponse.json({ error: "Error al eliminar el turno" }, { status: 500 });
   }
 }

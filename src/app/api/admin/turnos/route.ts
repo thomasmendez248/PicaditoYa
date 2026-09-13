@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { adminTurnoSchema } from "@/lib/validations/admin";
-import { checkDisponibilidad } from "@/lib/disponibilidad";
+import { checkDisponibilidad, obtenerDiaSemana } from "@/lib/disponibilidad";
 import { cancelarTurnosPendientesVencidos } from "@/lib/turnos-expirados";
 import { verificarYEnviarRecordatorios30Min } from "@/lib/recordatorios-turnos";
 
@@ -249,6 +249,17 @@ export async function POST(request: NextRequest) {
 
     if (!isSuperAdmin && cancha.predio.adminId !== session.user.id) {
       return NextResponse.json({ error: "Sin permisos para esta cancha" }, { status: 403 });
+    }
+
+    // Validar si la cancha opera en este día de la semana
+    const diaSemana = obtenerDiaSemana(fecha);
+    if (Array.isArray(cancha.diasOperativos) && cancha.diasOperativos.length > 0) {
+      if (!cancha.diasOperativos.includes(diaSemana)) {
+        return NextResponse.json(
+          { error: "La cancha no está configurada como operativa para el día seleccionado" },
+          { status: 400 }
+        );
+      }
     }
 
     // ─── CREACIÓN DE TURNO FIJO (RECURRENTE POR X SEMANAS) ───────────

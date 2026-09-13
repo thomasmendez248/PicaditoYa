@@ -21,8 +21,9 @@ import {
   ChevronRight,
   MessageCircle,
 } from "lucide-react";
-import { format, parseISO, isPast } from "date-fns";
+import { format, parseISO, isPast, differenceInHours } from "date-fns";
 import { es } from "date-fns/locale";
+import { parseArgentinaDateTime } from "@/lib/date-utils";
 
 function limpiarTelefono(tel: string | null | undefined): string {
   if (!tel) return "5493515138542";
@@ -77,7 +78,7 @@ type TurnoCliente = {
   fecha: string;
   horaInicio: string;
   horaFin: string;
-  estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show";
+  estado: "pendiente" | "confirmado" | "pendiente_cancelacion" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show";
   precioAlMomentoReserva: number;
   canceladoEn?: string | null;
   fechaCreacion: string;
@@ -170,12 +171,12 @@ export default function ClienteMisTurnosPage() {
 
   const turnosProximos = turnos.filter(
     (t) =>
-      (t.estado === "pendiente" || t.estado === "confirmado") &&
+      (t.estado === "pendiente" || t.estado === "confirmado" || t.estado === "pendiente_cancelacion") &&
       !esTurnoPasado(t.fecha, t.horaFin, t.horaInicio)
   );
   const turnosHistorial = turnos.filter(
     (t) =>
-      (t.estado !== "pendiente" && t.estado !== "confirmado") ||
+      (t.estado !== "pendiente" && t.estado !== "confirmado" && t.estado !== "pendiente_cancelacion") ||
       esTurnoPasado(t.fecha, t.horaFin, t.horaInicio)
   );
 
@@ -219,6 +220,13 @@ export default function ClienteMisTurnosPage() {
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
             <Clock className="w-3.5 h-3.5" />
             Pendiente de aprobación
+          </span>
+        );
+      case "pendiente_cancelacion":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+            <Clock className="w-3.5 h-3.5" />
+            Pendiente a Cancelación
           </span>
         );
       case "completado":
@@ -432,6 +440,14 @@ export default function ClienteMisTurnosPage() {
 
                 const esPasado = esTurnoPasado(turno.fecha, turno.horaFin, turno.horaInicio);
                 const esIniciado = esTurnoIniciado(turno.fecha, turno.horaInicio);
+                
+                const ahora = new Date();
+                const fechaTurno = parseArgentinaDateTime(turno.fecha, turno.horaInicio);
+                const horasAnticipacion = differenceInHours(fechaTurno, ahora);
+                const politicaHoras = turno.cancha.politicaCancelacionHoras ?? turno.cancha.predio.politicaCancelacionHoras ?? 24;
+                const dentroDePolitica = horasAnticipacion >= politicaHoras;
+
+                const esPendienteCancelacion = turno.estado === "pendiente_cancelacion";
                 const puedeCancelar =
                   (turno.estado === "pendiente" || turno.estado === "confirmado") &&
                   !esIniciado &&
@@ -532,16 +548,30 @@ export default function ClienteMisTurnosPage() {
                           <ChevronRight className="w-3.5 h-3.5" />
                         </Link>
 
-                        {puedeCancelar ? (
-                          <button
-                            onClick={() => {
-                              setTurnoACancelar(turno);
-                              setCancelError(null);
-                            }}
-                            className="px-4 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-xs font-bold text-red-300 transition-colors"
-                          >
-                            Cancelar Turno
-                          </button>
+                        {esPendienteCancelacion ? (
+                          <span className="px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 animate-pulse" />
+                            Cancelación en revisión
+                          </span>
+                        ) : puedeCancelar ? (
+                          dentroDePolitica ? (
+                            <button
+                              onClick={() => {
+                                setTurnoACancelar(turno);
+                                setCancelError(null);
+                              }}
+                              className="px-4 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-xs font-bold text-red-300 transition-colors"
+                            >
+                              Cancelar Turno
+                            </button>
+                          ) : (
+                            <span
+                              title={`La política del complejo requiere cancelar con al menos ${politicaHoras}hs de anticipación (quedan ${Math.max(0, horasAnticipacion)}hs).`}
+                              className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/40 cursor-not-allowed"
+                            >
+                              Fuera de término ({politicaHoras}h mín.)
+                            </span>
+                          )
                         ) : esPasado ? (
                           <span className="px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/40">
                             Turno finalizado
@@ -570,17 +600,20 @@ export default function ClienteMisTurnosPage() {
             </div>
 
             <h2 className="text-xl font-black text-white uppercase tracking-tight">
-              ¿Cancelar reserva de turno?
+              ¿Solicitar cancelación de turno?
             </h2>
 
             <p className="text-white/70 text-sm mt-2">
-              Estás a punto de cancelar tu turno en <strong className="text-white">{turnoACancelar.cancha.nombre}</strong> ({turnoACancelar.cancha.predio.nombre}) programado para el <strong className="text-white">{turnoACancelar.fecha.split("T")[0]}</strong> a las <strong className="text-white">{turnoACancelar.horaInicio} hs</strong>.
+              Estás a punto de solicitar la cancelación de tu turno en <strong className="text-white">{turnoACancelar.cancha.nombre}</strong> ({turnoACancelar.cancha.predio.nombre}) programado para el <strong className="text-white">{turnoACancelar.fecha.split("T")[0]}</strong> a las <strong className="text-white">{turnoACancelar.horaInicio} hs</strong>.
             </p>
 
-            <div className="mt-4 p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/60 space-y-1">
-              <p className="font-semibold text-white/80">Política de cancelación:</p>
+            <div className="mt-4 p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/70 space-y-1.5">
+              <p className="font-semibold text-white/90">Política de cancelación:</p>
               <p>
-                Mínimo {turnoACancelar.cancha.politicaCancelacionHoras ?? turnoACancelar.cancha.predio.politicaCancelacionHoras}hs de anticipación para no afectar tu puntaje de asistencia.
+                El complejo requiere un mínimo de <strong>{turnoACancelar.cancha.politicaCancelacionHoras ?? turnoACancelar.cancha.predio.politicaCancelacionHoras ?? 24} horas</strong> de anticipación.
+              </p>
+              <p className="text-amber-300 text-[11px] pt-1">
+                ℹ️ Al solicitarla, el turno no se eliminará de inmediato: pasará a estado <strong>Pendiente a Cancelación</strong> hasta que el administrador o empleado del predio lo confirme.
               </p>
             </div>
 
@@ -610,10 +643,10 @@ export default function ClienteMisTurnosPage() {
                 {cancelando ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Cancelando...</span>
+                    <span>Solicitando...</span>
                   </>
                 ) : (
-                  <span>Sí, cancelar turno</span>
+                  <span>Sí, solicitar cancelación</span>
                 )}
               </button>
             </div>

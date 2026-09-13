@@ -31,6 +31,7 @@ enum EstadoPredio {
 enum EstadoTurno {
   pendiente
   confirmado
+  pendiente_cancelacion
   cancelado_a_tiempo
   cancelado_tarde
   completado

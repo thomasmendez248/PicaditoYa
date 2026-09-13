@@ -35,17 +35,9 @@ export async function GET(request: NextRequest) {
   const distanciaMaxKm = distanciaStr ? parseFloat(distanciaStr) : undefined;
   const capacidad = capacidadStr ? parseInt(capacidadStr, 10) : undefined;
 
-  let fechaDate: Date | undefined = undefined;
-  if (fecha) {
-    fechaDate = new Date(fecha);
-    if (isNaN(fechaDate.getTime())) {
-      fechaDate = undefined;
-    }
-  }
-
   try {
     const canchas = await getCanchasDisponibles(
-      fechaDate,
+      fecha || undefined,
       horaInicio || undefined,
       horaFin || undefined,
       nombre,

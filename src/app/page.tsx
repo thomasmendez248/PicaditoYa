@@ -157,11 +157,12 @@ export default function HomePage() {
     );
   }, []);
 
-  const buscar = useCallback(async (deporteFiltro?: string) => {
+  const buscar = useCallback(async (deporteFiltro?: string, fechaFiltro?: string) => {
     setCargando(true);
     const dep = deporteFiltro !== undefined ? deporteFiltro : deporte;
+    const fec = fechaFiltro !== undefined ? fechaFiltro : fecha;
     const params = new URLSearchParams({
-      ...(fecha ? { fecha } : {}),
+      ...(fec ? { fecha: fec } : {}),
       ...(nombre ? { nombre } : {}),
       ...(provincia ? { provincia } : {}),
       ...(ciudad && !userCoords ? { ciudad } : {}),
@@ -294,7 +295,19 @@ export default function HomePage() {
                   <label htmlFor="search-fecha" className="text-xs font-black uppercase tracking-wider text-white/60">Fecha</label>
                   <div className="flex items-center gap-2.5">
                     <Calendar className="w-5 h-5 text-white/40 shrink-0" aria-hidden="true" />
-                    <input id="search-fecha" type="date" value={fecha} min={hoy} onChange={(e) => setFecha(e.target.value)} aria-label="Fecha de la reserva" className="w-full bg-transparent text-white text-base focus:outline-none [color-scheme:dark]" />
+                    <input
+                      id="search-fecha"
+                      type="date"
+                      value={fecha}
+                      min={hoy}
+                      onChange={(e) => {
+                        const nuevaFecha = e.target.value;
+                        setFecha(nuevaFecha);
+                        buscar(undefined, nuevaFecha);
+                      }}
+                      aria-label="Fecha de la reserva"
+                      className="w-full bg-transparent text-white text-base focus:outline-none [color-scheme:dark]"
+                    />
                   </div>
                 </div>
                 {/* Boton (manteniendo el mismo tamaño solicitado) */}
@@ -339,6 +352,41 @@ export default function HomePage() {
                     {canchas.length} {canchas.length === 1 ? "resultado" : "resultados"}
                   </span>
                 )}
+              </div>
+
+              {/* Filtro por tipo de cancha / deporte */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {DEPORTES_FILTRO.map((dep) => {
+                  const activo = deporte === dep.id;
+                  const emoji =
+                    dep.id === "futbol"
+                      ? "⚽"
+                      : dep.id === "basquet"
+                      ? "🏀"
+                      : dep.id === "padel" || dep.id === "tenis"
+                      ? "🎾"
+                      : dep.id === "voley"
+                      ? "🏐"
+                      : "✨";
+                  return (
+                    <button
+                      key={dep.id}
+                      type="button"
+                      onClick={() => {
+                        setDeporte(dep.id);
+                        buscar(dep.id);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 border select-none ${
+                        activo
+                          ? "bg-brand text-surface border-brand shadow-[0_0_15px_rgba(69,228,148,0.35)] scale-105"
+                          : "bg-[#0d1510]/90 hover:bg-white/10 text-white/70 hover:text-white border-white/10 hover:border-brand/40"
+                      }`}
+                    >
+                      <span className="text-sm leading-none">{emoji}</span>
+                      <span>{dep.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Estado cargando */}

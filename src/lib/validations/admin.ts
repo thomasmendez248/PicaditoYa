@@ -30,7 +30,7 @@ export const adminTurnoSchema = z.object({
 });
 
 export const updateTurnoEstadoSchema = z.object({
-  estado: z.enum(["pendiente", "confirmado", "cancelado_a_tiempo", "cancelado_tarde", "completado", "no_show"]),
+  estado: z.enum(["pendiente", "confirmado", "pendiente_cancelacion", "cancelado_a_tiempo", "cancelado_tarde", "completado", "no_show"]),
 });
 
 export const nuevoPredioSchema = z.object({

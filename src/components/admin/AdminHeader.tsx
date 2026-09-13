@@ -2,23 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   MapPin,
   Building2,
   ChevronDown,
   Plus,
-  LayoutDashboard,
-  CalendarDays,
-  CircleDot,
   LogOut,
   Sparkles,
   ExternalLink,
   Edit2,
   User,
-  Clock,
-  Users,
 } from "lucide-react";
 import { useAdmin, PredioAdmin } from "./AdminContext";
 import PredioModal from "./PredioModal";
@@ -26,19 +20,10 @@ import RadialNavMenu from "./RadialNavMenu";
 import BotonPushAdmin from "@/components/push/BotonPushAdmin";
 
 export default function AdminHeader() {
-  const pathname = usePathname();
   const { predios, selectedPredioId, selectedPredio, setSelectedPredioId, puedeCrearMas, maxPredios, cargando } = useAdmin();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalPredioOpen, setModalPredioOpen] = useState(false);
   const [predioAEditar, setPredioAEditar] = useState<PredioAdmin | null>(null);
-
-  const navItems = [
-    { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { label: "Canchas", href: "/admin/canchas", icon: CircleDot },
-    { label: "Turnos", href: "/admin/turnos", icon: CalendarDays },
-    { label: "Empleados", href: "/admin/empleados", icon: Users },
-    { label: "Turnero", href: "/empleado/turnero", icon: Clock },
-  ];
 
   return (
     <>
@@ -160,6 +145,7 @@ export default function AdminHeader() {
                 )}
               </div>
             </div>
+
 
             {/* Acciones derecha */}
             <div className="flex items-center gap-2.5 sm:gap-3">

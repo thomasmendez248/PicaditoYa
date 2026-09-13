@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getFechaHoyArgentina } from "@/lib/date-utils";
 import { adminTurnoSchema } from "@/lib/validations/admin";
-import { checkDisponibilidad } from "@/lib/disponibilidad";
+import { checkDisponibilidad, obtenerDiaSemana } from "@/lib/disponibilidad";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -172,6 +172,17 @@ export async function POST(request: NextRequest) {
     const predioId = session.user.predioId;
     if (rol === "empleado" && cancha.predioId !== predioId) {
       return NextResponse.json({ error: "No tenés permisos para esta cancha" }, { status: 403 });
+    }
+
+    // Validar si la cancha opera en este día de la semana
+    const diaSemana = obtenerDiaSemana(fecha);
+    if (Array.isArray(cancha.diasOperativos) && cancha.diasOperativos.length > 0) {
+      if (!cancha.diasOperativos.includes(diaSemana)) {
+        return NextResponse.json(
+          { error: "La cancha no se encuentra operativa en el día seleccionado" },
+          { status: 400 }
+        );
+      }
     }
 
     // Verificar disponibilidad

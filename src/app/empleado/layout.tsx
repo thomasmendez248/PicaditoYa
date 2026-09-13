@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { CircleDot, LogOut, ShieldCheck, UserCheck, LayoutDashboard } from "lucide-react";
+import { CircleDot, ShieldCheck, UserCheck, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
+import BotonLogoutEmpleado from "@/components/empleado/BotonLogoutEmpleado";
 
 export default async function EmpleadoLayout({
   children,
@@ -78,13 +79,7 @@ export default async function EmpleadoLayout({
             </div>
           </Link>
 
-          <Link
-            href="/api/auth/signout"
-            className="p-2 rounded-xl text-white/50 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-            title="Cerrar sesión"
-          >
-            <LogOut className="w-4 h-4" />
-          </Link>
+          <BotonLogoutEmpleado />
         </div>
       </header>
 
