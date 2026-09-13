@@ -12,6 +12,11 @@ const updatePerfilSchema = z.object({
     .string()
     .trim()
     .min(2, "El apellido es obligatorio y debe tener al menos 2 caracteres"),
+  email: z
+    .string()
+    .trim()
+    .email("El email no tiene un formato válido")
+    .optional(),
   telefono: z
     .string()
     .trim()
@@ -36,6 +41,7 @@ export async function GET() {
         email: true,
         telefono: true,
         rol: true,
+        predioId: true,
         puntajeAsistencia: true,
         turnosTotales: true,
         turnosAsistidos: true,
@@ -73,13 +79,31 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { nombre, apellido, telefono } = parsed.data;
+    const { nombre, apellido, email, telefono } = parsed.data;
+
+    if (email) {
+      const emailNormalizado = email.toLowerCase();
+      const usuarioExistente = await prisma.usuario.findFirst({
+        where: {
+          email: emailNormalizado,
+          NOT: { id: session.user.id },
+        },
+      });
+
+      if (usuarioExistente) {
+        return NextResponse.json(
+          { error: "Ya existe otra cuenta registrada con ese email" },
+          { status: 409 }
+        );
+      }
+    }
 
     const usuarioActualizado = await prisma.usuario.update({
       where: { id: session.user.id },
       data: {
         nombre,
         apellido,
+        ...(email ? { email: email.toLowerCase() } : {}),
         telefono: telefono ? telefono : null,
       },
       select: {

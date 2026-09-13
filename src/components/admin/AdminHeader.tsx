@@ -18,6 +18,7 @@ import {
   Edit2,
   User,
   Clock,
+  Users,
 } from "lucide-react";
 import { useAdmin, PredioAdmin } from "./AdminContext";
 import PredioModal from "./PredioModal";
@@ -35,6 +36,7 @@ export default function AdminHeader() {
     { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { label: "Canchas", href: "/admin/canchas", icon: CircleDot },
     { label: "Turnos", href: "/admin/turnos", icon: CalendarDays },
+    { label: "Empleados", href: "/admin/empleados", icon: Users },
     { label: "Turnero", href: "/empleado/turnero", icon: Clock },
   ];
 

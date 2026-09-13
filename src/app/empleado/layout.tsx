@@ -12,7 +12,7 @@ export default async function EmpleadoLayout({
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/login?callbackUrl=/empleado/turnero");
+    redirect("/auth/login?callbackUrl=/empleado/turnero");
   }
 
   const rol = session.user.rol;
@@ -26,8 +26,8 @@ export default async function EmpleadoLayout({
     <div className="min-h-screen bg-[#070b09] text-white flex flex-col font-sans">
       {/* Barra Superior */}
       <header className="sticky top-0 z-40 bg-[#0d1510]/95 backdrop-blur-xl border-b border-white/10 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-xl">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 group">
+        <div className="flex items-center gap-6">
+          <Link href="/empleado/turnero" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-xl bg-brand/20 border border-brand/40 flex items-center justify-center text-brand group-hover:scale-105 transition-transform">
               <CircleDot className="w-5 h-5" />
             </div>
@@ -36,10 +36,21 @@ export default async function EmpleadoLayout({
             </span>
           </Link>
 
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold">
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>Turnero / Recepción</span>
-          </span>
+          <nav className="hidden sm:flex items-center gap-2">
+            <Link
+              href="/empleado/turnero"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white/80 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-1.5"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-brand" />
+              <span>Turnero</span>
+            </Link>
+            <Link
+              href="/empleado/perfil"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white/80 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-1.5"
+            >
+              <span>Mi Perfil</span>
+            </Link>
+          </nav>
         </div>
 
         <div className="flex items-center gap-3">
@@ -53,7 +64,11 @@ export default async function EmpleadoLayout({
             </Link>
           )}
 
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+          <Link
+            href="/empleado/perfil"
+            className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+            title="Ver mi perfil"
+          >
             <div className="w-6 h-6 rounded-lg bg-brand/20 text-brand font-black text-xs flex items-center justify-center uppercase">
               {session.user.name?.charAt(0) || "E"}
             </div>
@@ -61,7 +76,7 @@ export default async function EmpleadoLayout({
               <p className="text-xs font-bold text-white leading-tight">{session.user.name}</p>
               <p className="text-[10px] text-white/50 capitalize">{rol}</p>
             </div>
-          </div>
+          </Link>
 
           <Link
             href="/api/auth/signout"

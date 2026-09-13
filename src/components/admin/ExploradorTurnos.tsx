@@ -26,6 +26,10 @@ import {
   ArrowUpDown,
   Repeat,
   FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  Shield,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -73,6 +77,19 @@ export type TurnoItem = {
     image?: string | null;
     puntajeAsistencia?: number | null;
   } | null;
+  auditorias?: {
+    id: string;
+    accion: string;
+    detalle: string | null;
+    createdAt: string;
+    usuario: {
+      id: string;
+      nombre: string;
+      apellido: string;
+      email: string;
+      rol: string;
+    };
+  }[];
 };
 
 type CanchaOption = {
@@ -98,8 +115,13 @@ export default function ExploradorTurnos({
   // Filtros
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
-  const [filtroFecha, setFiltroFecha] = useState<string>("");
+  const [fechaDesde, setFechaDesde] = useState<string>("");
+  const [fechaHasta, setFechaHasta] = useState<string>("");
   const [filtroCanchaId, setFiltroCanchaId] = useState<string>("todas");
+
+  // Paginación
+  const ITEMS_POR_PAGINA = 10;
+  const [paginaActual, setPaginaActual] = useState(1);
 
   // Acciones y Modal de detalle
   const [turnoSeleccionado, setTurnoSeleccionado] = useState<TurnoItem | null>(null);
@@ -119,8 +141,11 @@ export default function ExploradorTurnos({
       if (filtroCanchaId && filtroCanchaId !== "todas") {
         params.append("canchaId", filtroCanchaId);
       }
-      if (filtroFecha) {
-        params.append("fecha", filtroFecha);
+      if (fechaDesde) {
+        params.append("fechaDesde", fechaDesde);
+      }
+      if (fechaHasta) {
+        params.append("fechaHasta", fechaHasta);
       }
       if (filtroEstado === "fijos") {
         params.append("esFijo", "true");
@@ -135,12 +160,13 @@ export default function ExploradorTurnos({
       if (!res.ok) throw new Error("Error al consultar los turnos");
       const data = await res.json();
       setTurnos(data.turnos || []);
+      setPaginaActual(1);
     } catch (err: any) {
       setError(err.message || "Error al cargar turnos");
     } finally {
       setCargando(false);
     }
-  }, [predioId, filtroCanchaId, filtroFecha, filtroEstado, busqueda]);
+  }, [predioId, filtroCanchaId, fechaDesde, fechaHasta, filtroEstado, busqueda]);
 
   useEffect(() => {
     fetchTurnos();
@@ -267,6 +293,13 @@ export default function ExploradorTurnos({
     return { total, pendientes, confirmados, completados, fijos, cancelados, ingresosEstimados };
   }, [turnos]);
 
+  // Paginación
+  const totalPaginas = Math.max(1, Math.ceil(turnos.length / ITEMS_POR_PAGINA));
+  const turnosPaginados = useMemo(() => {
+    const inicio = (paginaActual - 1) * ITEMS_POR_PAGINA;
+    return turnos.slice(inicio, inicio + ITEMS_POR_PAGINA);
+  }, [turnos, paginaActual, ITEMS_POR_PAGINA]);
+
   // Formatear badge de estado
   const renderBadgeEstado = (estado: TurnoItem["estado"]) => {
     switch (estado) {
@@ -386,32 +419,47 @@ export default function ExploradorTurnos({
             </select>
           </div>
 
-          {/* Filtro de Fecha */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <div className="relative flex-1 md:w-44">
-              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
+          {/* Filtros de Rango de Fecha */}
+          <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+            <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
+              <CalendarIcon className="w-3.5 h-3.5 text-white/40 shrink-0" />
+              <span className="text-[10px] font-bold text-white/40 uppercase">Desde</span>
               <input
                 type="date"
-                value={filtroFecha}
-                onChange={(e) => setFiltroFecha(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand [color-scheme:dark]"
+                value={fechaDesde}
+                onChange={(e) => { setFechaDesde(e.target.value); setPaginaActual(1); }}
+                className="bg-transparent text-xs font-bold text-white focus:outline-none [color-scheme:dark] w-28"
               />
             </div>
-
-            {filtroFecha && (
+            <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
+              <CalendarIcon className="w-3.5 h-3.5 text-white/40 shrink-0" />
+              <span className="text-[10px] font-bold text-white/40 uppercase">Hasta</span>
+              <input
+                type="date"
+                value={fechaHasta}
+                min={fechaDesde || undefined}
+                onChange={(e) => { setFechaHasta(e.target.value); setPaginaActual(1); }}
+                className="bg-transparent text-xs font-bold text-white focus:outline-none [color-scheme:dark] w-28"
+              />
+            </div>
+            {(fechaDesde || fechaHasta) && (
               <button
-                onClick={() => setFiltroFecha("")}
-                className="bg-white/10 hover:bg-white/15 text-white/70 hover:text-white text-xs font-semibold px-3 py-2.5 rounded-xl border border-white/10 transition-colors whitespace-nowrap"
-                title="Quitar filtro de fecha (ver todas las fechas)"
+                onClick={() => { setFechaDesde(""); setFechaHasta(""); setPaginaActual(1); }}
+                className="bg-white/10 hover:bg-white/15 text-white/70 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/10 transition-colors whitespace-nowrap"
+                title="Limpiar filtro de fechas"
               >
-                Todas las fechas
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
-            
             <button
-              onClick={() => setFiltroFecha(format(new Date(), "yyyy-MM-dd"))}
-              className={`text-xs font-bold px-3 py-2.5 rounded-xl border transition-colors whitespace-nowrap ${
-                filtroFecha === format(new Date(), "yyyy-MM-dd")
+              onClick={() => {
+                const hoy = format(new Date(), "yyyy-MM-dd");
+                setFechaDesde(hoy);
+                setFechaHasta(hoy);
+                setPaginaActual(1);
+              }}
+              className={`text-xs font-bold px-3 py-2 rounded-xl border transition-colors whitespace-nowrap ${
+                fechaDesde === format(new Date(), "yyyy-MM-dd") && fechaHasta === format(new Date(), "yyyy-MM-dd")
                   ? "bg-brand text-surface border-brand"
                   : "bg-white/5 text-white/80 border-white/10 hover:bg-white/10"
               }`}
@@ -457,7 +505,7 @@ export default function ExploradorTurnos({
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => setFiltroEstado(item.id)}
+              onClick={() => { setFiltroEstado(item.id); setPaginaActual(1); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                 filtroEstado === item.id
                   ? "bg-brand text-surface shadow-[0_0_12px_rgba(69,228,148,0.3)]"
@@ -506,7 +554,7 @@ export default function ExploradorTurnos({
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-sans">
-                {turnos.map((turno) => {
+                {turnosPaginados.map((turno) => {
                   const [y, m, d] = turno.fecha.split("T")[0].split("-").map(Number);
                   const fechaObj = new Date(y, m - 1, d, 12, 0, 0);
                   const fechaLegible = format(fechaObj, "dd/MM/yyyy (EEE)", { locale: es });
@@ -693,6 +741,55 @@ export default function ExploradorTurnos({
               </tbody>
             </table>
           </div>
+
+          {/* ── PAGINACIÓN ── */}
+          {totalPaginas > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-white/[0.01]">
+              <span className="text-[11px] text-white/40 font-semibold">
+                Mostrando {(paginaActual - 1) * ITEMS_POR_PAGINA + 1}–{Math.min(paginaActual * ITEMS_POR_PAGINA, turnos.length)} de {turnos.length} turnos
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                  disabled={paginaActual === 1}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPaginas || Math.abs(p - paginaActual) <= 2)
+                  .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "..." ? (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-white/30 text-xs">…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => setPaginaActual(item as number)}
+                        className={`min-w-[32px] h-8 rounded-lg text-xs font-bold transition-colors ${
+                          paginaActual === item
+                            ? "bg-brand text-surface shadow-[0_0_8px_rgba(69,228,148,0.4)]"
+                            : "bg-white/5 text-white/70 hover:bg-white/10 border border-white/10"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+                <button
+                  onClick={() => setPaginaActual((p) => Math.min(totalPaginas, p + 1))}
+                  disabled={paginaActual === totalPaginas}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -874,6 +971,47 @@ export default function ExploradorTurnos({
                     </button>
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* ── HISTORIAL DE AUDITORÍA (QUIÉN MODIFICÓ EL TURNO) ── */}
+            <div className="space-y-2 pt-3 border-t border-white/10">
+              <div className="flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5 text-brand" />
+                <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                  Historial de Modificaciones
+                </span>
+              </div>
+              {turnoSeleccionado.auditorias && turnoSeleccionado.auditorias.length > 0 ? (
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {turnoSeleccionado.auditorias.map((aud) => (
+                    <div
+                      key={aud.id}
+                      className="bg-white/5 border border-white/5 rounded-xl p-2.5 text-[11px] space-y-0.5"
+                    >
+                      <div className="flex items-center justify-between text-white/80 font-semibold">
+                        <span className="flex items-center gap-1">
+                          <Shield className="w-3 h-3 text-brand" />
+                          {aud.usuario.nombre} {aud.usuario.apellido}
+                          <span className="text-[9px] text-white/40 uppercase font-mono">
+                            ({aud.usuario.rol})
+                          </span>
+                        </span>
+                        <span className="text-[10px] text-white/40">
+                          {format(new Date(aud.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
+                        </span>
+                      </div>
+                      <p className="text-white/60">
+                        Acción: <strong className="text-brand capitalize">{aud.accion.replace("_", " ")}</strong>
+                        {aud.detalle && ` — ${aud.detalle}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-white/40 italic bg-white/5 p-2.5 rounded-xl">
+                  No hay registros de auditoría para este turno.
+                </p>
               )}
             </div>
 

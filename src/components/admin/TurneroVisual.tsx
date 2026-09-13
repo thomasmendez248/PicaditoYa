@@ -19,6 +19,8 @@ import {
   Ban,
   MessageCircle,
   Repeat,
+  History,
+  Shield,
 } from "lucide-react";
 
 export type TurnoItem = {
@@ -40,6 +42,19 @@ export type TurnoItem = {
     email: string;
     telefono: string | null;
   } | null;
+  auditorias?: {
+    id: string;
+    accion: string;
+    detalle: string | null;
+    createdAt: string;
+    usuario: {
+      id: string;
+      nombre: string;
+      apellido: string;
+      email: string;
+      rol: string;
+    };
+  }[];
 };
 
 type CanchaInfo = {
@@ -538,80 +553,37 @@ export default function TurneroVisual({
                 </div>
               </div>
 
-              {/* Toggle Tipo de Cliente */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-2">Tipo de Reserva</label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-white/5 rounded-2xl border border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => setTipoCliente("manual")}
-                    className={`py-2 text-xs font-bold rounded-xl transition-all ${
-                      tipoCliente === "manual"
-                        ? "bg-brand text-surface shadow-sm font-black"
-                        : "text-white/60 hover:text-white"
-                    }`}
-                  >
-                    Cliente Mostrador / Tel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTipoCliente("registrado")}
-                    className={`py-2 text-xs font-bold rounded-xl transition-all ${
-                      tipoCliente === "registrado"
-                        ? "bg-brand text-surface shadow-sm font-black"
-                        : "text-white/60 hover:text-white"
-                    }`}
-                  >
-                    Cliente Registrado
-                  </button>
-                </div>
-              </div>
-
               {/* Campos Cliente Manual */}
-              {tipoCliente === "manual" ? (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">Nombre del Cliente *</label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ej: Juan Pérez"
-                        value={nombreCliente}
-                        onChange={(e) => setNombreCliente(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand text-white placeholder:text-white/40"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">Teléfono (opcional)</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                      <input
-                        type="text"
-                        placeholder="Ej: 3584123456"
-                        value={telefonoCliente}
-                        onChange={(e) => setTelefonoCliente(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand text-white placeholder:text-white/40"
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
+              <>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">ID de Usuario</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="CUID del cliente"
-                    value={clienteId}
-                    onChange={(e) => setClienteId(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand text-white placeholder:text-white/40"
-                  />
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">Nombre del Cliente *</label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: Juan Pérez"
+                      value={nombreCliente}
+                      onChange={(e) => setNombreCliente(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand text-white placeholder:text-white/40"
+                    />
+                  </div>
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-1.5">Teléfono (opcional)</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                    <input
+                      type="text"
+                      placeholder="Ej: 3584123456"
+                      value={telefonoCliente}
+                      onChange={(e) => setTelefonoCliente(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand text-white placeholder:text-white/40"
+                    />
+                  </div>
+                </div>
+              </>
 
               {/* Estado Inicial & Precio */}
               <div className="grid grid-cols-2 gap-4">
@@ -907,6 +879,47 @@ export default function TurneroVisual({
                     No-Show (Faltó)
                   </button>
                 </div>
+              </div>
+
+              {/* Historial de Auditoría */}
+              <div className="space-y-2 pt-3 border-t border-white/10">
+                <div className="flex items-center gap-1.5">
+                  <History className="w-3.5 h-3.5 text-brand" />
+                  <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                    Historial de Modificaciones
+                  </span>
+                </div>
+                {turnoSeleccionado.auditorias && turnoSeleccionado.auditorias.length > 0 ? (
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                    {turnoSeleccionado.auditorias.map((aud) => (
+                      <div
+                        key={aud.id}
+                        className="bg-white/5 border border-white/5 rounded-xl p-2.5 text-[11px] space-y-0.5"
+                      >
+                        <div className="flex items-center justify-between text-white/80 font-semibold">
+                          <span className="flex items-center gap-1">
+                            <Shield className="w-3 h-3 text-brand" />
+                            {aud.usuario.nombre} {aud.usuario.apellido}
+                            <span className="text-[9px] text-white/40 uppercase font-mono">
+                              ({aud.usuario.rol})
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-white/40">
+                            {new Date(aud.createdAt).toLocaleDateString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <p className="text-white/60">
+                          Acción: <strong className="text-brand capitalize">{aud.accion.replace("_", " ")}</strong>
+                          {aud.detalle && ` — ${aud.detalle}`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-white/40 italic bg-white/5 p-2 rounded-xl">
+                    No hay registros de auditoría para este turno.
+                  </p>
+                )}
               </div>
 
               {/* Eliminar / Cancelar Turno */}

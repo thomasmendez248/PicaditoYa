@@ -45,7 +45,23 @@ export const nuevoPredioSchema = z.object({
 
 export const updatePredioSchema = nuevoPredioSchema.partial();
 
+export const crearEmpleadoSchema = z.object({
+  nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  apellido: z.string().min(2, "El apellido debe tener al menos 2 caracteres"),
+  email: z.string().email("Email inválido"),
+  telefono: z.string().optional().nullable(),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+  predioId: z.string().cuid("ID de predio inválido"),
+});
+
+export const cambiarPasswordSchema = z.object({
+  passwordActual: z.string().min(1, "Ingresá tu contraseña actual"),
+  passwordNueva: z.string().min(6, "La nueva contraseña debe tener al menos 6 caracteres"),
+});
+
 export type CanchaInput = z.infer<typeof canchaSchema>;
 export type AdminTurnoInput = z.infer<typeof adminTurnoSchema>;
 export type NuevoPredioInput = z.infer<typeof nuevoPredioSchema>;
 export type UpdatePredioInput = z.infer<typeof updatePredioSchema>;
+export type CrearEmpleadoInput = z.infer<typeof crearEmpleadoSchema>;
+export type CambiarPasswordInput = z.infer<typeof cambiarPasswordSchema>;

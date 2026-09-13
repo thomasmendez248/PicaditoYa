@@ -8,7 +8,15 @@ import { AlertTriangle } from "lucide-react";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
-  if (!session?.user || (session.user.rol !== "admin" && session.user.rol !== "super_admin")) {
+  if (!session?.user) {
+    redirect("/auth/login?callbackUrl=/admin");
+  }
+
+  if (session.user.rol === "empleado") {
+    redirect("/empleado/turnero");
+  }
+
+  if (session.user.rol !== "admin" && session.user.rol !== "super_admin") {
     redirect("/auth/login?callbackUrl=/admin");
   }
 

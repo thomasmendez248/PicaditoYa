@@ -62,6 +62,15 @@ export async function PUT(
         },
       });
 
+      await prisma.auditoriaTurno.create({
+        data: {
+          turnoId: id,
+          usuarioId: session.user.id,
+          accion: "cambiar_estado",
+          detalle: `Serie recurrente cancelada (${turno.estado} → ${parsed.data.estado})`,
+        },
+      });
+
       return NextResponse.json({ message: "Serie recurrente de turnos actualizada con éxito" });
     }
 
@@ -70,6 +79,15 @@ export async function PUT(
       data: {
         estado: parsed.data.estado,
         canceladoEn: isCancelacion ? new Date() : null,
+      },
+    });
+
+    await prisma.auditoriaTurno.create({
+      data: {
+        turnoId: id,
+        usuarioId: session.user.id,
+        accion: "cambiar_estado",
+        detalle: `${turno.estado} → ${parsed.data.estado}`,
       },
     });
 

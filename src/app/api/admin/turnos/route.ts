@@ -105,10 +105,22 @@ export async function GET(request: NextRequest) {
       if (!isNaN(fechaDate.getTime())) {
         where.fecha = { equals: fechaDate };
       }
+    } else if (fechaDesde && !fechaHasta) {
+      // Solo fecha desde → filtrar exactamente esa fecha
+      const fechaDate = new Date(fechaDesde);
+      if (!isNaN(fechaDate.getTime())) {
+        where.fecha = { equals: fechaDate };
+      }
     } else if (fechaDesde || fechaHasta) {
+      // Rango completo (ambas fechas)
       where.fecha = {};
       if (fechaDesde) where.fecha.gte = new Date(fechaDesde);
-      if (fechaHasta) where.fecha.lte = new Date(fechaHasta);
+      if (fechaHasta) {
+        // Incluir todo el día hasta
+        const hasta = new Date(fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+        where.fecha.lte = hasta;
+      }
     }
 
     // Filtro de Estado
@@ -168,6 +180,14 @@ export async function GET(request: NextRequest) {
             image: true,
             puntajeAsistencia: true,
           },
+        },
+        auditorias: {
+          include: {
+            usuario: {
+              select: { id: true, nombre: true, apellido: true, email: true, rol: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
         },
       },
       orderBy: [
@@ -270,6 +290,16 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Auditoría de turno fijo creado
+        await prisma.auditoriaTurno.create({
+          data: {
+            turnoId: nuevoTurno.id,
+            usuarioId: session.user.id,
+            accion: "crear",
+            detalle: `Turno fijo creado — ${horaInicio} a ${horaFin} en ${cancha.nombre} (semana ${i + 1})`,
+          },
+        });
+
         turnosCreados.push(nuevoTurno);
       }
 
@@ -319,6 +349,16 @@ export async function POST(request: NextRequest) {
         cliente: {
           select: { id: true, nombre: true, apellido: true, email: true, telefono: true },
         },
+      },
+    });
+
+    // Auditoría de turno individual creado
+    await prisma.auditoriaTurno.create({
+      data: {
+        turnoId: turno.id,
+        usuarioId: session.user.id,
+        accion: "crear",
+        detalle: `Turno creado por admin — ${horaInicio} a ${horaFin} en ${cancha.nombre}`,
       },
     });
 
