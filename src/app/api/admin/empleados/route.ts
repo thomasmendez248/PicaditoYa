@@ -50,7 +50,12 @@ export async function GET(request: NextRequest) {
       orderBy: { fechaCreacion: "asc" },
     });
 
-    return NextResponse.json({ empleados, maxEmpleados: MAX_EMPLEADOS_POR_PREDIO });
+    const empleadosFormateados = empleados.map((e) => ({
+      ...e,
+      createdAt: e.fechaCreacion,
+    }));
+
+    return NextResponse.json({ empleados: empleadosFormateados, maxEmpleados: MAX_EMPLEADOS_POR_PREDIO });
   } catch (error) {
     console.error("[GET /api/admin/empleados]", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
@@ -130,7 +135,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ empleado }, { status: 201 });
+    return NextResponse.json({
+      empleado: {
+        ...empleado,
+        createdAt: empleado.fechaCreacion,
+      },
+    }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/admin/empleados]", error);
     return NextResponse.json({ error: "Error al crear el empleado" }, { status: 500 });

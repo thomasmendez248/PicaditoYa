@@ -49,7 +49,7 @@ export type TurnoItem = {
   fecha: string;
   horaInicio: string;
   horaFin: string;
-  estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show";
+  estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show" | "pendiente_cancelacion";
   precioAlMomentoReserva: number;
   esFijo?: boolean;
   grupoFijoId?: string | null;
@@ -280,6 +280,7 @@ export default function ExploradorTurnos({
   const metricas = useMemo(() => {
     const total = turnos.length;
     const pendientes = turnos.filter((t) => t.estado === "pendiente").length;
+    const pendientesCancelacion = turnos.filter((t) => t.estado === "pendiente_cancelacion").length;
     const confirmados = turnos.filter((t) => t.estado === "confirmado").length;
     const completados = turnos.filter((t) => t.estado === "completado").length;
     const fijos = turnos.filter((t) => t.esFijo).length;
@@ -290,7 +291,7 @@ export default function ExploradorTurnos({
       .filter((t) => t.estado === "confirmado" || t.estado === "completado")
       .reduce((sum, t) => sum + t.precioAlMomentoReserva, 0);
 
-    return { total, pendientes, confirmados, completados, fijos, cancelados, ingresosEstimados };
+    return { total, pendientes, pendientesCancelacion, confirmados, completados, fijos, cancelados, ingresosEstimados };
   }, [turnos]);
 
   // Paginación
@@ -315,6 +316,13 @@ export default function ExploradorTurnos({
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
             <Clock className="w-3 h-3" />
             Pendiente
+          </span>
+        );
+      case "pendiente_cancelacion":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+            <AlertTriangle className="w-3 h-3" />
+            Pend. Cancelación
           </span>
         );
       case "completado":
@@ -498,6 +506,7 @@ export default function ExploradorTurnos({
             { id: "todos", label: "Todos" },
             { id: "fijos", label: "Fijos Semanales", badgeClass: "text-indigo-400" },
             { id: "pendiente", label: "Pendientes", badgeClass: "text-amber-400" },
+            { id: "pendiente_cancelacion", label: `Pend. Cancelación${metricas.pendientesCancelacion > 0 ? ` (${metricas.pendientesCancelacion})` : ""}`, badgeClass: "text-rose-400" },
             { id: "confirmado", label: "Confirmados", badgeClass: "text-brand" },
             { id: "completado", label: "Jugados" },
             { id: "cancelados", label: "Cancelados" },
@@ -871,6 +880,37 @@ export default function ExploradorTurnos({
                 </div>
               )}
             </div>
+
+            {/* Control de Solicitud de Cancelación */}
+            {turnoSeleccionado.estado === "pendiente_cancelacion" && (
+              <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 space-y-2.5">
+                <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                  <span>Solicitud de Cancelación del Cliente</span>
+                </div>
+                <p className="text-[11px] text-rose-200/80">
+                  El cliente solicitó cancelar este turno con la anticipación requerida. Podés aprobar la cancelación (se registrará como cancelado a tiempo) o rechazarla para mantener el turno confirmado.
+                </p>
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    onClick={() => handleActualizarEstado(turnoSeleccionado.id, "cancelado_a_tiempo")}
+                    disabled={procesandoId === turnoSeleccionado.id}
+                    className="py-2.5 px-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-surface font-black text-xs transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.3)] cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Aprobar Cancelación</span>
+                  </button>
+                  <button
+                    onClick={() => handleActualizarEstado(turnoSeleccionado.id, "confirmado")}
+                    disabled={procesandoId === turnoSeleccionado.id}
+                    className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Rechazar Solicitud</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Control de Asistencia si el turno está confirmado */}
             {turnoSeleccionado.estado === "confirmado" && (

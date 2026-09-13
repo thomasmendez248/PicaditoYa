@@ -45,6 +45,9 @@ function limpiarTelefono(tel: string | null | undefined): string | null {
   return `549${nums}`;
 }
 
+const DIAS_SEMANA_NOMBRES = ["Domingos", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábados"];
+const DIAS_SEMANA_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
 export default function ModalReservaCancha({
   isOpen,
   onClose,
@@ -74,6 +77,21 @@ export default function ModalReservaCancha({
   const [whatsappUrlGenerado, setWhatsappUrlGenerado] = useState<string | null>(null);
 
   const duracionCancha = cancha?.duracionTurnoMinutos || 60;
+
+  // Calcular el día de la semana sin desfasaje de zona horaria
+  const diaSemana = useMemo(() => {
+    if (!fecha) return null;
+    const [y, m, d] = fecha.split("-").map(Number);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+    return new Date(y, m - 1, d, 12, 0, 0).getDay();
+  }, [fecha]);
+
+  // Verificar si la cancha opera en el día seleccionado
+  const esDiaOperativo = useMemo(() => {
+    if (!cancha || diaSemana === null) return true;
+    if (!Array.isArray(cancha.diasOperativos) || cancha.diasOperativos.length === 0) return true;
+    return cancha.diasOperativos.includes(diaSemana);
+  }, [cancha, diaSemana]);
 
   // Generar bloques de horarios de inicio según la duración configurada en la cancha
   const slots: string[] = useMemo(() => {
@@ -280,6 +298,11 @@ export default function ModalReservaCancha({
   // Registrar el turno y construir enlace a WhatsApp
   const handleReservar = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!esDiaOperativo) {
+      setError("Esta cancha no se encuentra operativa en la fecha seleccionada");
+      return;
+    }
 
     const nombreFinal = estaAutenticado
       ? (session?.user?.name || "Jugador")
@@ -488,6 +511,23 @@ export default function ModalReservaCancha({
                     className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand [color-scheme:dark]"
                   />
                 </div>
+
+                {!esDiaOperativo && diaSemana !== null && (
+                  <div className="mt-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3 animate-fade-in">
+                    <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-bold text-amber-200">
+                        Cancha no disponible los {DIAS_SEMANA_NOMBRES[diaSemana]}
+                      </p>
+                      <p className="text-amber-300/80 leading-relaxed">
+                        Esta cancha no se encuentra habilitada para reservas en este día.
+                        {cancha.diasOperativos && cancha.diasOperativos.length > 0 && (
+                          <> Días habilitados: <span className="font-semibold text-white">{cancha.diasOperativos.map(d => DIAS_SEMANA_CORTOS[d]).join(", ")}</span>.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 2. Horarios: Horario Desde (Inicio) y Horario Hasta (Fin) */}
@@ -499,7 +539,17 @@ export default function ModalReservaCancha({
                   {cargandoSlots && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />}
                 </div>
 
-                {slots.length === 0 ? (
+                {!esDiaOperativo ? (
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center py-6 animate-fade-in">
+                    <Clock className="w-8 h-8 text-amber-400/60 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-white mb-1">
+                      Cancha cerrada en la fecha seleccionada
+                    </p>
+                    <p className="text-[11px] text-white/50">
+                      Por favor seleccioná un día habilitado en el calendario para consultar horarios disponibles.
+                    </p>
+                  </div>
+                ) : slots.length === 0 ? (
                   <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center py-6 animate-fade-in">
                     <Clock className="w-8 h-8 text-white/30 mx-auto mb-2" />
                     <p className="text-xs font-bold text-white mb-1">
@@ -628,7 +678,7 @@ export default function ModalReservaCancha({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={guardando || !horaInicio || !horaFin}
+                  disabled={guardando || !esDiaOperativo || !horaInicio || !horaFin}
                   className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 text-surface font-black text-sm py-4 rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-[0_0_20px_rgba(69,228,148,0.3)] hover:scale-[1.01] active:scale-[0.98]"
                 >
                   {guardando ? (

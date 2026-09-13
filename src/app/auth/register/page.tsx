@@ -5,7 +5,6 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  MapPin,
   Mail,
   Lock,
   Eye,
@@ -86,10 +85,12 @@ function RegisterForm() {
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-surface/90 backdrop-blur border-b border-border">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-            <MapPin className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-brand rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(76,175,125,0.4)] group-hover:scale-105 transition-transform">
+            <span className="text-surface font-black text-xl italic tracking-tighter">P</span>
           </div>
-          <span className="text-text-main font-bold text-xl tracking-tight">PicaditoYa</span>
+          <span className="text-2xl font-bold text-white tracking-tight drop-shadow-sm group-hover:text-white/90 transition-colors">
+            Picadito<span className="text-brand">Ya</span>
+          </span>
         </Link>
         <nav className="flex items-center gap-3">
           <Link href="/" className="text-sm font-medium text-text-muted hover:text-text-main transition-colors px-3 py-1.5 flex items-center gap-1">
@@ -121,8 +122,8 @@ function RegisterForm() {
 
               {/* Logo + Título */}
               <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center mx-auto mb-3">
-                  <MapPin className="w-8 h-8 text-brand" />
+                <div className="w-16 h-16 bg-brand rounded-full flex items-center justify-center mx-auto mb-3 shadow-[0_0_25px_rgba(69,228,148,0.4)]">
+                  <span className="text-surface font-black text-3xl italic tracking-tighter">P</span>
                 </div>
                 <span className="inline-block text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-brand/10 text-brand border border-brand/20 mb-2">
                   Cuenta de Jugador / Cliente

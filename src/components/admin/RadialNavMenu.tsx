@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { X, LayoutDashboard, CircleDot, CalendarDays, LogOut, User } from "lucide-react";
+import { X, LayoutDashboard, CircleDot, CalendarDays, LogOut, User, Users } from "lucide-react";
 
 export default function RadialNavMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -41,8 +41,8 @@ export default function RadialNavMenu() {
       href: "/admin",
       icon: LayoutDashboard,
       delay: "0ms",
-      mobile: { x: -100, y: -50 },
-      desktop: { x: 76, y: -93 },
+      mobile: { x: -122, y: -45 },
+      desktop: { x: 47, y: -174 },
     },
     {
       id: "canchas",
@@ -50,9 +50,9 @@ export default function RadialNavMenu() {
       sublabel: "Gestión",
       href: "/admin/canchas",
       icon: CircleDot,
-      delay: "30ms",
-      mobile: { x: -55, y: -95 },
-      desktop: { x: 115, y: -45 },
+      delay: "25ms",
+      mobile: { x: -87, y: -97 },
+      desktop: { x: 127, y: -127 },
     },
     {
       id: "turnos",
@@ -60,9 +60,19 @@ export default function RadialNavMenu() {
       sublabel: "Agenda",
       href: "/admin/turnos",
       icon: CalendarDays,
-      delay: "60ms",
-      mobile: { x: 0, y: -110 },
-      desktop: { x: 125, y: 10 },
+      delay: "50ms",
+      mobile: { x: -31, y: -126 },
+      desktop: { x: 174, y: -47 },
+    },
+    {
+      id: "empleados",
+      label: "Empleados",
+      sublabel: "Equipo",
+      href: "/admin/empleados",
+      icon: Users,
+      delay: "75ms",
+      mobile: { x: 31, y: -126 },
+      desktop: { x: 174, y: 47 },
     },
     {
       id: "perfil",
@@ -70,9 +80,9 @@ export default function RadialNavMenu() {
       sublabel: "Mis Datos",
       href: "/admin/perfil",
       icon: User,
-      delay: "90ms",
-      mobile: { x: 55, y: -95 },
-      desktop: { x: 105, y: 65 },
+      delay: "100ms",
+      mobile: { x: 87, y: -97 },
+      desktop: { x: 127, y: 127 },
     },
     {
       id: "logout",
@@ -81,9 +91,9 @@ export default function RadialNavMenu() {
       href: "#logout",
       isLogout: true,
       icon: LogOut,
-      delay: "120ms",
-      mobile: { x: 100, y: -50 },
-      desktop: { x: 65, y: 110 },
+      delay: "125ms",
+      mobile: { x: 122, y: -45 },
+      desktop: { x: 47, y: 174 },
     },
   ];
 
@@ -125,9 +135,44 @@ export default function RadialNavMenu() {
             )}
           </button>
 
-          {/* Opciones Circulares Radiales (4 Botones Centrados y Simétricos) */}
+          {/* Opciones Circulares Radiales situadas en la circunferencia */}
           {isOpen && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
+
+              {/* Guía visual sutil de la circunferencia trazada (Desktop r=180px, Mobile r=130px) */}
+              <svg
+                className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none overflow-visible"
+                width="360"
+                height="360"
+                viewBox="-180 -180 360 360"
+              >
+                <circle
+                  cx="0"
+                  cy="0"
+                  r="180"
+                  fill="none"
+                  stroke="rgba(69,228,148,0.14)"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 6"
+                />
+              </svg>
+              <svg
+                className="block sm:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none overflow-visible"
+                width="260"
+                height="260"
+                viewBox="-130 -130 260 260"
+              >
+                <circle
+                  cx="0"
+                  cy="0"
+                  r="130"
+                  fill="none"
+                  stroke="rgba(69,228,148,0.14)"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 6"
+                />
+              </svg>
+
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
@@ -135,9 +180,9 @@ export default function RadialNavMenu() {
 
                 const innerContent = (
                   <>
-                    {/* Círculo individual de la opción */}
+                    {/* Círculo individual de la opción: centrado exactamente en la circunferencia */}
                     <div
-                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border transition-all duration-200 shadow-2xl group-hover:scale-110 shrink-0 ${isActive
+                      className={`w-full h-full rounded-full flex items-center justify-center border transition-all duration-200 shadow-2xl group-hover:scale-110 shrink-0 ${isActive
                           ? "bg-brand text-surface border-brand shadow-[0_0_20px_rgba(69,228,148,0.6)] ring-4 ring-brand/20"
                           : isLogout
                             ? "bg-[#0f1712]/95 backdrop-blur-xl hover:bg-red-500/20 text-red-400 hover:text-red-300 border-white/20 hover:border-red-500/50"
@@ -147,15 +192,15 @@ export default function RadialNavMenu() {
                       <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${isActive ? "stroke-[2.5]" : ""}`} />
                     </div>
 
-                    {/* Tooltip / Cartelito con el nombre */}
+                    {/* Tooltip Desktop: a la derecha del círculo sin desplazar su centro */}
                     <div
-                      className={`bg-[#0f1712]/95 backdrop-blur-xl border px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none transition-all group-hover:scale-105 ${isLogout
+                      className={`hidden sm:flex flex-col absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 bg-[#0f1712]/95 backdrop-blur-xl border px-3 py-1.5 rounded-2xl shadow-2xl whitespace-nowrap transition-all group-hover:scale-105 pointer-events-auto ${isLogout
                           ? "border-white/15 group-hover:border-red-500/50"
                           : "border-white/15 group-hover:border-brand/50"
                         }`}
                     >
                       <p
-                        className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left ${isActive
+                        className={`text-xs font-black uppercase tracking-wider text-left ${isActive
                             ? "text-brand"
                             : isLogout
                               ? "text-red-400"
@@ -164,7 +209,21 @@ export default function RadialNavMenu() {
                       >
                         {item.label}
                       </p>
-                      <p className="text-[9px] sm:text-[10px] text-white/50 hidden sm:block">{item.sublabel}</p>
+                      <p className="text-[10px] text-white/50 text-left">{item.sublabel}</p>
+                    </div>
+
+                    {/* Tooltip Mobile: abajo del círculo sin desplazar su centro */}
+                    <div
+                      className={`flex sm:hidden absolute top-[calc(100%+4px)] left-1/2 -translate-x-1/2 bg-[#0f1712]/95 backdrop-blur-xl border px-2 py-0.5 rounded-lg shadow-xl whitespace-nowrap transition-all pointer-events-none ${isLogout
+                          ? "border-red-500/30 text-red-400"
+                          : isActive
+                            ? "border-brand/50 text-brand"
+                            : "border-white/15 text-white"
+                        }`}
+                    >
+                      <p className="text-[9px] font-black uppercase tracking-wider">
+                        {item.label}
+                      </p>
                     </div>
                   </>
                 );
@@ -179,7 +238,7 @@ export default function RadialNavMenu() {
                       ["--desk-x" as any]: `${item.desktop.x}px`,
                       ["--desk-y" as any]: `${item.desktop.y}px`,
                     }}
-                    className={`absolute top-0 left-0 transition-all duration-300 ease-out pointer-events-auto ${isOpen
+                    className={`absolute top-0 left-0 w-12 h-12 sm:w-14 sm:h-14 transition-all duration-300 ease-out pointer-events-auto ${isOpen
                         ? "scale-100 opacity-100 [transform:translate(var(--mob-x),var(--mob-y))_translate(-50%,-50%)] sm:[transform:translate(var(--desk-x),var(--desk-y))_translate(-50%,-50%)]"
                         : "scale-0 opacity-0 pointer-events-none [transform:translate(0,0)_translate(-50%,-50%)]"
                       }`}
@@ -190,7 +249,7 @@ export default function RadialNavMenu() {
                           setIsOpen(false);
                           signOut({ callbackUrl: "/auth/login" });
                         }}
-                        className="group flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 relative"
+                        className="w-full h-full relative group block"
                       >
                         {innerContent}
                       </button>
@@ -198,7 +257,7 @@ export default function RadialNavMenu() {
                       <Link
                         href={item.href}
                         onClick={() => setIsOpen(false)}
-                        className="group flex flex-col sm:flex-row items-center gap-1.5 sm:gap-3 relative"
+                        className="w-full h-full relative group block"
                       >
                         {innerContent}
                       </Link>

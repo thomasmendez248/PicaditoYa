@@ -41,6 +41,14 @@ export async function PATCH(
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
       }
 
+      // Si ya solicitó cancelación y está pendiente de revisión por el predio
+      if (turno.estado === "pendiente_cancelacion") {
+        return NextResponse.json(
+          { error: "La cancelación de este turno ya fue solicitada y se encuentra pendiente de revisión" },
+          { status: 400 }
+        );
+      }
+
       if (turno.estado !== "confirmado" && turno.estado !== "pendiente") {
         return NextResponse.json(
           { error: "Solo se pueden cancelar turnos activos o pendientes" },
@@ -58,86 +66,61 @@ export async function PATCH(
         );
       }
 
-      // Si estaba pendiente, se cancela directamente sin penalización
-      if (turno.estado === "pendiente") {
-        const turnoActualizado = await prisma.turno.update({
-          where: { id },
-          data: {
-            estado: "cancelado_a_tiempo",
-            canceladoEn: new Date(),
-          },
-        });
-
-        // Notificar al admin sobre la cancelación de la solicitud
-        const adminId = turno.cancha.predio.adminId;
-        if (adminId) {
-          const fechaTexto = formatearFechaAmigable(turno.fecha);
-          const nombreCliente = session.user.name || turno.nombreClienteManual || "Un cliente";
-          sendPushToUser(adminId, {
-            title: "Solicitud cancelada ❌",
-            body: `${nombreCliente} canceló su solicitud de turno en ${turno.cancha.nombre} para el ${fechaTexto} a las ${turno.horaInicio}hs.`,
-            url: "/admin",
-            tag: `solicitud-cancelada-${turno.id}`,
-          }).catch((err) => console.error("[PATCH /api/turnos/[id]] Error al enviar push de cancelación al admin:", err));
-        }
-
-        return NextResponse.json({
-          turno: turnoActualizado,
-          mensaje: "Solicitud de turno cancelada correctamente",
-        });
-      }
-
       // Calcular horas de anticipación
       const horasAnticipacion = differenceInHours(fechaTurno, ahora);
 
-      // La política de cancelación: usa override de cancha si existe, sino la del predio
+      // La política de cancelación: usa override de cancha si existe, sino la del predio (default 24)
       const politicaHoras =
         turno.cancha.politicaCancelacionHoras ??
-        turno.cancha.predio.politicaCancelacionHoras;
+        turno.cancha.predio.politicaCancelacionHoras ??
+        24;
 
-      const esACiempo = horasAnticipacion >= politicaHoras;
-      const nuevoEstado = esACiempo ? "cancelado_a_tiempo" : "cancelado_tarde";
+      // Verificar si se puede por la cantidad de horas disponible de la cancelación
+      if (horasAnticipacion < politicaHoras) {
+        return NextResponse.json(
+          {
+            error: `No es posible cancelar el turno: la política del complejo exige un mínimo de ${politicaHoras} horas de anticipación (quedan ${Math.max(0, horasAnticipacion)} hs).`,
+            horasAnticipacion,
+            politicaHoras,
+          },
+          { status: 400 }
+        );
+      }
 
+      // Al cancelarlo por el cliente este no se elimina, pasa a estado pendiente a cancelación
       const turnoActualizado = await prisma.turno.update({
         where: { id },
         data: {
-          estado: nuevoEstado,
+          estado: "pendiente_cancelacion",
           canceladoEn: ahora,
         },
       });
-
-      // Si fue cancelación tarde, impacta en el puntaje como no-show
-      if (!esACiempo) {
-        await actualizarPuntajeCliente(turno.clienteId, "no_show");
-      }
 
       await prisma.auditoriaTurno.create({
         data: {
           turnoId: id,
           usuarioId: session.user.id,
-          accion: "cancelar",
-          detalle: esACiempo ? "Cancelado a tiempo por cliente" : "Cancelado tarde por cliente (penalización)",
+          accion: "solicitar_cancelacion",
+          detalle: `Cliente solicitó cancelación con ${horasAnticipacion}hs de anticipación (política requerida: ${politicaHoras}hs)`,
         },
       });
 
-      // Notificar al administrador del predio sobre la cancelación
+      // Notificar al administrador del predio sobre la solicitud de cancelación
       const adminId = turno.cancha.predio.adminId;
       if (adminId) {
         const fechaTexto = formatearFechaAmigable(turno.fecha);
         const nombreCliente = session.user.name || turno.nombreClienteManual || "Un cliente";
         sendPushToUser(adminId, {
-          title: "Turno cancelado ❌",
-          body: `${nombreCliente} canceló su turno en ${turno.cancha.nombre} para el ${fechaTexto} a las ${turno.horaInicio}hs.`,
-          url: "/admin",
-          tag: `turno-cancelado-${turno.id}`,
+          title: "Solicitud de cancelación ⚠️",
+          body: `${nombreCliente} solicitó cancelar su turno en ${turno.cancha.nombre} para el ${fechaTexto} a las ${turno.horaInicio}hs (${horasAnticipacion}hs de anticipación).`,
+          url: "/admin/turnos",
+          tag: `solicitud-cancelacion-${turno.id}`,
         }).catch((err) => console.error("[PATCH /api/turnos/[id]] Error al enviar push de cancelación al admin:", err));
       }
 
       return NextResponse.json({
         turno: turnoActualizado,
-        mensaje: esACiempo
-          ? "Turno cancelado correctamente"
-          : `Turno cancelado fuera de término (mínimo ${politicaHoras}h de anticipación). Impactará en tu puntaje.`,
+        mensaje: "Solicitud de cancelación enviada correctamente. El administrador o empleado revisará y confirmará la cancelación.",
       });
     }
 

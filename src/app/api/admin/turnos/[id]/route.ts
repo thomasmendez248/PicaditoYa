@@ -10,7 +10,7 @@ export async function PUT(
 ) {
   const session = await auth();
 
-  if (!session?.user || (session.user.rol !== "admin" && session.user.rol !== "super_admin")) {
+  if (!session?.user || !["admin", "super_admin", "empleado"].includes(session.user.rol)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -32,7 +32,10 @@ export async function PUT(
       return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 });
     }
 
-    if (!isSuperAdmin && turno.cancha.predio.adminId !== session.user.id) {
+    const esAdminPredio = session.user.rol === "admin" && turno.cancha.predio.adminId === session.user.id;
+    const esEmpleadoPredio = session.user.rol === "empleado" && turno.cancha.predioId === session.user.predioId;
+
+    if (!isSuperAdmin && !esAdminPredio && !esEmpleadoPredio) {
       return NextResponse.json({ error: "Sin permisos sobre este turno" }, { status: 403 });
     }
 
@@ -48,6 +51,9 @@ export async function PUT(
 
     const isCancelacion = parsed.data.estado === "cancelado_a_tiempo" || parsed.data.estado === "cancelado_tarde";
     const fueAprobado = parsed.data.estado === "confirmado" && turno.estado === "pendiente";
+    // Estado pendiente_cancelacion gestionado por admin/empleado
+    const cancelacionAprobada = isCancelacion && turno.estado === "pendiente_cancelacion";
+    const cancelacionRechazada = parsed.data.estado === "confirmado" && turno.estado === "pendiente_cancelacion";
     const cancelarSerie = body.cancelarSerie === true && !!turno.grupoFijoId;
 
     if (cancelarSerie) {
@@ -102,6 +108,28 @@ export async function PUT(
       }).catch((err) => console.error("[PUT /api/admin/turnos/[id]] Error al enviar push al cliente:", err));
     }
 
+    // Notificar al cliente cuando se aprueba su cancelación
+    if (cancelacionAprobada && turno.clienteId) {
+      const fechaTexto = formatearFechaAmigable(turno.fecha);
+      sendPushToUser(turno.clienteId, {
+        title: "Cancelación aprobada ✅",
+        body: `Tu solicitud de cancelación para el turno en ${turno.cancha.nombre} (${fechaTexto} ${turno.horaInicio}hs) fue aceptada.`,
+        url: "/cliente/mis-turnos",
+        tag: `cancelacion-aprobada-${turno.id}`,
+      }).catch((err) => console.error("[PUT /api/admin/turnos/[id]] Error push cancelación aprobada:", err));
+    }
+
+    // Notificar al cliente si se rechaza su solicitud de cancelación
+    if (cancelacionRechazada && turno.clienteId) {
+      const fechaTexto = formatearFechaAmigable(turno.fecha);
+      sendPushToUser(turno.clienteId, {
+        title: "Solicitud no aprobada ℹ️",
+        body: `Tu solicitud de cancelación para el turno en ${turno.cancha.nombre} (${fechaTexto} ${turno.horaInicio}hs) no fue aprobada. El turno continúa confirmado.`,
+        url: "/cliente/mis-turnos",
+        tag: `cancelacion-rechazada-${turno.id}`,
+      }).catch((err) => console.error("[PUT /api/admin/turnos/[id]] Error push cancelación rechazada:", err));
+    }
+
     return NextResponse.json({ turno: turnoActualizado });
   } catch (error) {
     console.error("[PUT /api/admin/turnos/[id]]", error);
@@ -115,7 +143,7 @@ export async function DELETE(
 ) {
   const session = await auth();
 
-  if (!session?.user || (session.user.rol !== "admin" && session.user.rol !== "super_admin")) {
+  if (!session?.user || !["admin", "super_admin", "empleado"].includes(session.user.rol)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -137,7 +165,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 });
     }
 
-    if (!isSuperAdmin && turno.cancha.predio.adminId !== session.user.id) {
+    const esAdminPredio = session.user.rol === "admin" && turno.cancha.predio.adminId === session.user.id;
+    const esEmpleadoPredio = session.user.rol === "empleado" && turno.cancha.predioId === session.user.predioId;
+
+    if (!isSuperAdmin && !esAdminPredio && !esEmpleadoPredio) {
       return NextResponse.json({ error: "Sin permisos sobre este turno" }, { status: 403 });
     }
 

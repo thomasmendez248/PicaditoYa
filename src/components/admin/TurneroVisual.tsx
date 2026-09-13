@@ -32,7 +32,7 @@ export type TurnoItem = {
   fecha: string;
   horaInicio: string;
   horaFin: string;
-  estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show";
+  estado: "pendiente" | "confirmado" | "cancelado_a_tiempo" | "cancelado_tarde" | "completado" | "no_show" | "pendiente_cancelacion";
   precioAlMomentoReserva: number;
   esFijo?: boolean;
   grupoFijoId?: string | null;
@@ -67,6 +67,9 @@ type CanchaInfo = {
   diasOperativos: number[];
 };
 
+const DIAS_SEMANA_NOMBRES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const DIAS_SEMANA_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
 export default function TurneroVisual({
   cancha,
   fecha,
@@ -77,6 +80,20 @@ export default function TurneroVisual({
   const [turnos, setTurnos] = useState<TurnoItem[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Día de la semana sin desfasaje de zona horaria
+  const diaSemana = (() => {
+    if (!fecha) return null;
+    const [y, m, d] = fecha.split("-").map(Number);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+    return new Date(y, m - 1, d, 12, 0, 0).getDay();
+  })();
+
+  const esDiaOperativo = (() => {
+    if (!cancha || diaSemana === null) return true;
+    if (!Array.isArray(cancha.diasOperativos) || cancha.diasOperativos.length === 0) return true;
+    return cancha.diasOperativos.includes(diaSemana);
+  })();
 
   // Modales
   const [modalNuevoOpen, setModalNuevoOpen] = useState(false);
@@ -301,6 +318,7 @@ export default function TurneroVisual({
   // Contadores
   const totalConfirmados = turnos.filter((t) => t.estado === "confirmado" || t.estado === "completado").length;
   const totalPendientes = turnos.filter((t) => t.estado === "pendiente").length;
+  const totalPendienteCancelacion = turnos.filter((t) => t.estado === "pendiente_cancelacion").length;
 
   return (
     <div className="space-y-6">
@@ -322,6 +340,13 @@ export default function TurneroVisual({
             <span className="text-amber-400 font-bold">Pendiente</span>
           </div>
 
+          {totalPendienteCancelacion > 0 && (
+            <div className="flex items-center gap-2 animate-pulse">
+              <span className="w-3 h-3 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+              <span className="text-rose-400 font-bold">Cancelación Solicitada</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-white/20 border border-white/20" />
             <span className="text-white/60 font-medium">Libre</span>
@@ -330,6 +355,12 @@ export default function TurneroVisual({
 
         {/* Resumen numérico */}
         <div className="flex items-center gap-3 text-xs">
+          {totalPendienteCancelacion > 0 && (
+            <span className="px-3 py-1.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-black animate-pulse flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {totalPendienteCancelacion} Cancelación{totalPendienteCancelacion > 1 ? "es" : ""} por revisar
+            </span>
+          )}
           <span className="px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black">
             {totalConfirmados} Confirmados
           </span>
@@ -345,6 +376,23 @@ export default function TurneroVisual({
           </button>
         </div>
       </div>
+
+      {!esDiaOperativo && diaSemana !== null && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+            <div>
+              <span className="font-bold text-amber-200">Día no operativo configurado:</span>{" "}
+              <span className="text-amber-300/80">
+                Esta cancha tiene configurado no operar los {DIAS_SEMANA_NOMBRES[diaSemana]}. Días activos: {cancha.diasOperativos?.map((d) => DIAS_SEMANA_CORTOS[d]).join(", ")}.
+              </span>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 font-bold rounded-lg text-[10px] uppercase shrink-0 self-start sm:self-auto">
+            Cerrada al público
+          </span>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-sm flex items-center gap-2">
@@ -380,8 +428,9 @@ export default function TurneroVisual({
             {slots.map((slotTime) => {
               const turno = getTurnoForSlot(slotTime);
               const isOcupado = !!turno;
+              const isPendienteCancelacion = turno?.estado === "pendiente_cancelacion";
               const isPendiente = turno?.estado === "pendiente";
-              const isConfirmado = turno && turno.estado !== "pendiente";
+              const isConfirmado = turno && turno.estado !== "pendiente" && turno.estado !== "pendiente_cancelacion";
 
               const clienteNombre =
                 turno?.nombreClienteManual ||
@@ -405,7 +454,9 @@ export default function TurneroVisual({
                     }
                   }}
                   className={`relative p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[105px] group ${
-                    isConfirmado
+                    isPendienteCancelacion
+                      ? "bg-rose-500/20 border-rose-500/60 hover:bg-rose-500/30 hover:border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.2)]"
+                      : isConfirmado
                       ? "bg-emerald-500/15 border-emerald-500/50 hover:bg-emerald-500/25 hover:border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
                       : isPendiente
                       ? "bg-amber-500/15 border-amber-500/50 hover:bg-amber-500/25 hover:border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
@@ -429,6 +480,9 @@ export default function TurneroVisual({
                       )}
                     </div>
 
+                    {isPendienteCancelacion && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.8)] animate-pulse" title="Cancelación Solicitada por Cliente" />
+                    )}
                     {isConfirmado && (
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" title="Confirmado" />
                     )}
@@ -444,7 +498,13 @@ export default function TurneroVisual({
                   <div className="mt-2">
                     {isOcupado ? (
                       <div>
-                        <p className={`text-xs font-black truncate ${isPendiente ? "text-amber-300" : "text-emerald-300"}`}>
+                        <p className={`text-xs font-black truncate ${
+                          isPendienteCancelacion
+                            ? "text-rose-300"
+                            : isPendiente
+                            ? "text-amber-300"
+                            : "text-emerald-300"
+                        }`}>
                           {clienteNombre}
                         </p>
                         <p className="text-[10px] text-white/50 font-mono truncate mt-0.5">
@@ -471,7 +531,7 @@ export default function TurneroVisual({
                     ) : (
                       <span className="font-mono font-bold text-brand">${precioSlot.toLocaleString("es-AR")}</span>
                     )}
-                    <span className="capitalize">{isOcupado ? turno.estado : "Disponible"}</span>
+                    <span className="capitalize">{isOcupado ? (isPendienteCancelacion ? "Pend. Cancelación" : turno.estado) : "Disponible"}</span>
                   </div>
                 </div>
               );
@@ -690,12 +750,18 @@ export default function TurneroVisual({
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                    turnoSeleccionado.estado === "pendiente"
+                    turnoSeleccionado.estado === "pendiente_cancelacion"
+                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                      : turnoSeleccionado.estado === "pendiente"
                       ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                       : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                   }`}
                 >
-                  <CheckCircle className="w-5 h-5" />
+                  {turnoSeleccionado.estado === "pendiente_cancelacion" ? (
+                    <AlertTriangle className="w-5 h-5 text-rose-400 animate-bounce" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">Detalle del Turno</h2>
@@ -745,12 +811,14 @@ export default function TurneroVisual({
                   <span className="text-xs text-white/50">Estado actual:</span>
                   <span
                     className={`text-xs font-bold px-3 py-0.5 rounded-full capitalize ${
-                      turnoSeleccionado.estado === "pendiente"
+                      turnoSeleccionado.estado === "pendiente_cancelacion"
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                        : turnoSeleccionado.estado === "pendiente"
                         ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                         : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                     }`}
                   >
-                    {turnoSeleccionado.estado}
+                    {turnoSeleccionado.estado === "pendiente_cancelacion" ? "Pendiente a Cancelación" : turnoSeleccionado.estado}
                   </span>
                 </div>
 
@@ -783,8 +851,40 @@ export default function TurneroVisual({
                 )}
               </div>
 
-              {/* Botones de acción principales (Aceptar / Denegar / Cancelar) */}
-              {turnoSeleccionado.estado === "pendiente" ? (
+              {/* Botones de acción principales (Aprobar Cancelación / Aceptar / Denegar / Cancelar) */}
+              {turnoSeleccionado.estado === "pendiente_cancelacion" ? (
+                <div className="space-y-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
+                    <div>
+                      <span className="block text-xs font-black uppercase tracking-wider text-rose-300">
+                        Solicitud de Cancelación del Cliente
+                      </span>
+                      <p className="text-[11px] text-rose-200/80 mt-0.5 leading-relaxed">
+                        El cliente solicitó cancelar este turno con la anticipación requerida. Podés aprobar la cancelación (se marca cancelado a tiempo) o rechazarla para mantener el turno activo.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 pt-1">
+                    <button
+                      onClick={() => handleCambiarEstado("cancelado_a_tiempo")}
+                      disabled={guardando}
+                      className="py-3 px-4 rounded-2xl bg-rose-500 hover:bg-rose-400 text-surface font-black text-xs flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all hover:scale-105 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      Aprobar Cancelación
+                    </button>
+                    <button
+                      onClick={() => handleCambiarEstado("confirmado")}
+                      disabled={guardando}
+                      className="py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                      Rechazar Solicitud
+                    </button>
+                  </div>
+                </div>
+              ) : turnoSeleccionado.estado === "pendiente" ? (
                 <div className="space-y-2">
                   <span className="block text-xs font-bold uppercase tracking-wider text-amber-300">
                     Solicitud Pendiente de Confirmación:

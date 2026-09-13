@@ -416,6 +416,48 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      {/* ── BARRA DE SECCIONES PRINCIPALES Y ACCESOS DIRECTOS ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 animate-fade-in">
+        <Link
+          href="/admin/canchas"
+          className="bg-[#0f1712]/90 border border-white/10 hover:border-brand/50 p-4 rounded-2xl flex items-center gap-3.5 transition-all hover:scale-[1.02] group shadow-lg"
+        >
+          <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand group-hover:scale-110 transition-transform">
+            <CircleDot className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-xs font-black text-white group-hover:text-brand transition-colors block">Canchas</span>
+            <span className="text-[10px] text-white/50">Crear y editar</span>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/turnos"
+          className="bg-[#0f1712]/90 border border-white/10 hover:border-brand/50 p-4 rounded-2xl flex items-center gap-3.5 transition-all hover:scale-[1.02] group shadow-lg"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+            <CalendarDays className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-xs font-black text-white group-hover:text-brand transition-colors block">Turnos</span>
+            <span className="text-[10px] text-white/50">Turnero y agenda</span>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/empleados"
+          className="bg-[#0f1712]/90 border border-white/10 hover:border-brand/50 p-4 rounded-2xl flex items-center gap-3.5 transition-all hover:scale-[1.02] group shadow-lg"
+        >
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-xs font-black text-white group-hover:text-brand transition-colors block">Empleados</span>
+            <span className="text-[10px] text-white/50">Crear turneros</span>
+          </div>
+        </Link>
+      </div>
+
       {/* ── KPIs / ESTADÍSTICAS ── */}
       {cargandoStats ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

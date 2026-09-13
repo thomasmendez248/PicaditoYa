@@ -13,6 +13,41 @@ function normalizarTexto(texto: string): string {
 }
 
 /**
+ * Extrae el día de la semana (0=Dom, 1=Lun, ..., 6=Sáb) de forma exacta y
+ * sin sufrir desfasajes por huso horario (ej: UTC vs UTC-3).
+ *
+ * @param fecha - String "YYYY-MM-DD" o instancia de Date
+ */
+export function obtenerDiaSemana(fecha: string | Date): number {
+  if (typeof fecha === "string") {
+    const soloFecha = fecha.split("T")[0];
+    const partes = soloFecha.split("-");
+    if (partes.length === 3) {
+      const [y, m, d] = partes.map(Number);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return new Date(y, m - 1, d, 12, 0, 0).getDay();
+      }
+    }
+    const parsed = new Date(fecha);
+    return isNaN(parsed.getTime()) ? 0 : parsed.getUTCDay();
+  }
+
+  // Si es un objeto Date:
+  // Si fue creado como Date("YYYY-MM-DD") sus horas UTC son 00:00:00.000
+  if (
+    fecha.getUTCHours() === 0 &&
+    fecha.getUTCMinutes() === 0 &&
+    fecha.getUTCSeconds() === 0 &&
+    fecha.getUTCMilliseconds() === 0
+  ) {
+    return fecha.getUTCDay();
+  }
+
+  // Si tiene hora local específica (ej: new Date()):
+  return fecha.getDay();
+}
+
+/**
  * Verifica si una cancha está disponible en un rango horario específico.
  *
  * Esta función es la fuente única de verdad para la lógica de disponibilidad.
@@ -20,7 +55,7 @@ function normalizarTexto(texto: string): string {
  * (modo validación), garantizando que nunca queden desincronizadas.
  *
  * @param canchaId - ID de la cancha a verificar
- * @param fecha - Fecha del turno (solo la parte de fecha)
+ * @param fecha - Fecha del turno (Date o string "YYYY-MM-DD")
  * @param horaInicio - Hora de inicio en formato "HH:mm"
  * @param horaFin - Hora de fin en formato "HH:mm"
  * @param excludeTurnoId - ID de turno a excluir (útil para edición de turnos)
@@ -28,18 +63,19 @@ function normalizarTexto(texto: string): string {
  */
 export async function checkDisponibilidad(
   canchaId: string,
-  fecha: Date,
+  fecha: Date | string,
   horaInicio: string,
   horaFin: string,
   excludeTurnoId?: string
 ): Promise<boolean> {
+  const fechaDate = typeof fecha === "string" ? new Date(fecha) : fecha;
   const turnos = await prisma.turno.findMany({
     where: {
       canchaId,
       fecha: {
-        equals: fecha,
+        equals: fechaDate,
       },
-      estado: { in: ["confirmado", "pendiente"] as EstadoTurno[] },
+      estado: { in: ["confirmado", "pendiente", "pendiente_cancelacion"] as EstadoTurno[] },
       ...(excludeTurnoId ? { id: { not: excludeTurnoId } } : {}),
     },
     select: {
@@ -75,7 +111,7 @@ export async function checkDisponibilidad(
  * Devuelve las canchas disponibles de predios activos para una fecha y franja horaria.
  * Usada en el Home para el filtro de disponibilidad.
  *
- * @param fecha - Fecha a consultar
+ * @param fecha - Fecha a consultar (Date o string "YYYY-MM-DD")
  * @param horaInicio - Hora de inicio en formato "HH:mm"
  * @param horaFin - Hora de fin en formato "HH:mm"
  * @param nombre - Filtro opcional de texto sobre nombre de cancha o predio
@@ -85,7 +121,7 @@ export async function checkDisponibilidad(
  * @param distanciaMaxKm - Radio máximo en km (default: 50)
  */
 export async function getCanchasDisponibles(
-  fecha?: Date,
+  fecha?: Date | string,
   horaInicio?: string,
   horaFin?: string,
   nombre?: string,
@@ -104,10 +140,11 @@ export async function getCanchasDisponibles(
   // 1. Si se proveyó horario y fecha, buscamos turnos ocupados
   let canchasOcupadasIds: string[] = [];
   if (fecha && horaInicio && horaFin) {
+    const fechaDateObj = typeof fecha === "string" ? new Date(fecha) : fecha;
     const turnosFecha = await prisma.turno.findMany({
       where: {
-        fecha: { equals: fecha },
-        estado: { in: ["confirmado", "pendiente"] as EstadoTurno[] },
+        fecha: { equals: fechaDateObj },
+        estado: { in: ["confirmado", "pendiente", "pendiente_cancelacion"] as EstadoTurno[] },
       },
       select: { canchaId: true, horaInicio: true, horaFin: true },
     });
@@ -297,8 +334,8 @@ export async function getCanchasDisponibles(
     if (prediosIdsFinales.length === 0) return [];
   }
 
-  // Día de la semana (0=Dom, 1=Lun...)
-  const diaSemana = fecha ? fecha.getDay() : undefined;
+  // Día de la semana (0=Dom, 1=Lun...) calculado sin desfasaje de huso horario
+  const diaSemana = fecha ? obtenerDiaSemana(fecha) : undefined;
   const ahora = new Date();
 
   const canchas = await prisma.cancha.findMany({
